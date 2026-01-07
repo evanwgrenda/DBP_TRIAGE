@@ -5,7 +5,7 @@ import json
 
 # Page config
 st.set_page_config(
-    page_title="UCLA Triage Prototype",
+    page_title="UCLA Neuro Clinic Routing Prototype",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -57,14 +57,37 @@ st.markdown("""
     }
     div[data-testid="stButton"] button {
         border-color: #2774AE;
+        border-width: 2px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    div[data-testid="stButton"] button[kind="secondary"] {
+        background-color: #f5f5f5;
+        color: #666;
+        border-color: #ddd;
+    }
+    div[data-testid="stButton"] button[kind="secondary"]:hover {
+        background-color: #E8F4FA;
+        border-color: #2774AE;
+        color: #2774AE;
     }
     div[data-testid="stButton"] button[kind="primary"] {
         background-color: #2774AE;
         border-color: #2774AE;
+        color: white;
+        font-weight: 600;
     }
     div[data-testid="stButton"] button[kind="primary"]:hover {
         background-color: #005587;
         border-color: #005587;
+    }
+    .section-header {
+        font-size: 16px;
+        font-weight: bold;
+        margin-top: 20px;
+        margin-bottom: 15px;
+        padding: 12px 15px;
+        border-radius: 8px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -95,6 +118,226 @@ CLINICS = {
         "color": "#005587"
     }
 }
+
+# Mapping of button IDs to clinical flags
+ITEM_FLAGS = {
+    # Neurologic History
+    "hx_serious_head_injury": ["neuro_flag"],
+    "hx_seizures_convulsions_staring_spells": ["neuro_flag", "high_acuity_flag"],
+    "hx_frequent_headaches_migraines": ["neuro_flag"],
+    "hx_cerebral_palsy": ["neuro_flag", "high_acuity_flag"],
+    
+    # Genetic / Neurocutaneous
+    "hx_abnormal_genetic_testing": ["neuro_flag"],
+    "hx_tuberous_sclerosis": ["neuro_flag", "high_acuity_flag"],
+    
+    # Mental Health History
+    "hx_bipolar": ["psych_flag", "high_acuity_flag"],
+    "hx_ocd": ["psych_flag"],
+    "hx_anxiety_panic": ["psych_flag"],
+    "hx_depression": ["psych_flag"],
+    "hx_suicidal_ideation_or_attempt": ["psych_flag", "high_acuity_flag", "safety_flag"],
+    
+    # Development & Education
+    "referred_regional_center": ["dbp_flag"],
+    "has_iep": ["dbp_flag"],
+    "has_504": ["dbp_flag"],
+    
+    # Current Services
+    "receives_outpatient_services": ["dbp_flag"],
+    
+    # Parent Concerns
+    "parent_dev_or_behavioral_concerns": ["dbp_flag"]
+}
+
+def route_patient_new(age, selected_items):
+    """
+    New routing function that works with button-based interface
+    Args:
+        age: patient age in years (float for infants)
+        selected_items: list of selected item IDs
+    Returns: (clinic, confidence, reasoning)
+    """
+    reasoning = []
+    confidence = "High"
+    
+    # Collect all flags from selected items
+    flags = set()
+    for item_id in selected_items:
+        if item_id in ITEM_FLAGS:
+            flags.update(ITEM_FLAGS[item_id])
+    
+    # STEP 2: SAFETY SCREEN (Highest Priority)
+    if "safety_flag" in flags:
+        reasoning.append("🚨 SAFETY PRIORITY: Acute psychiatric safety concern detected")
+        reasoning.append("Patient has suicidal ideation or suicide attempt history")
+        reasoning.append("Immediate referral to Child & Adolescent Psychiatry required")
+        reasoning.append("DBP is not appropriate as first-line care for acute safety concerns")
+        return "PPC", "High", reasoning
+    
+    # STEP 3: NEUROLOGIC DISEASE SCREEN (Overrides Age)
+    if "neuro_flag" in flags:
+        reasoning.append("🧠 NEUROLOGIC CONDITION: Primary neurologic disease detected")
+        
+        # Identify specific neurologic concerns
+        neuro_concerns = []
+        if "hx_seizures_convulsions_staring_spells" in selected_items:
+            neuro_concerns.append("Seizures/convulsions/staring spells")
+        if "hx_serious_head_injury" in selected_items:
+            neuro_concerns.append("Serious head injury")
+        if "hx_cerebral_palsy" in selected_items:
+            neuro_concerns.append("Cerebral palsy")
+        if "hx_tuberous_sclerosis" in selected_items:
+            neuro_concerns.append("Tuberous sclerosis")
+        if "hx_frequent_headaches_migraines" in selected_items:
+            neuro_concerns.append("Frequent headaches/migraines")
+        if "hx_abnormal_genetic_testing" in selected_items:
+            neuro_concerns.append("Abnormal neurogenetic testing")
+        
+        if neuro_concerns:
+            reasoning.append(f"Neurologic conditions present: {', '.join(neuro_concerns)}")
+        
+        reasoning.append("Refer to Pediatric Neurology first for neurologic evaluation")
+        
+        # Check if developmental concerns also present
+        if "dbp_flag" in flags:
+            reasoning.append("Note: Developmental/educational concerns also present")
+            reasoning.append("DBP may follow after neurologic evaluation for developmental impact")
+            confidence = "Medium"
+        
+        return "CAN", confidence, reasoning
+    
+    # STEP 1: AGE-BASED PRIORITIZATION
+    
+    # AGE < 2 YEARS: DBP Fast-Track
+    if age < 2:
+        reasoning.append("👶 Age < 2 years: DBP Fast-Track Priority")
+        reasoning.append("Early intervention is critical for developmental and behavioral concerns")
+        
+        if "dbp_flag" in flags or "parent_dev_or_behavioral_concerns" in selected_items:
+            reasoning.append("Developmental, behavioral, or regulatory concern identified")
+            reasoning.append("→ DBP for developmental assessment and early intervention services")
+            return "DBP", "High", reasoning
+        
+        # Even without explicit DBP flags, infants with concerns should go to DBP
+        if len(selected_items) > 0:
+            reasoning.append("Any developmental or behavioral concern in child <2 years → DBP")
+            return "DBP", "High", reasoning
+        
+        # No concerns selected
+        reasoning.append("No specific concerns identified for this infant")
+        reasoning.append("Consider whether developmental screening is needed")
+        return "DBP", "Medium", reasoning
+    
+    # AGE 2-5 YEARS: DBP Preferred
+    elif age >= 2 and age < 6:
+        reasoning.append("🧒 Age 2-5 years: DBP Preferred for Developmental Concerns")
+        
+        # Check for DBP indicators
+        if "dbp_flag" in flags:
+            dbp_indicators = []
+            if "referred_regional_center" in selected_items:
+                dbp_indicators.append("Regional Center involvement")
+            if "has_iep" in selected_items:
+                dbp_indicators.append("Has IEP")
+            if "has_504" in selected_items:
+                dbp_indicators.append("Has 504 Plan")
+            if "receives_outpatient_services" in selected_items:
+                dbp_indicators.append("Receiving outpatient services")
+            if "parent_dev_or_behavioral_concerns" in selected_items:
+                dbp_indicators.append("Parent has developmental/behavioral concerns")
+            
+            if dbp_indicators:
+                reasoning.append("Developmental complexity indicators present:")
+                for indicator in dbp_indicators:
+                    reasoning.append(f"  • {indicator}")
+            
+            reasoning.append("Complex developmental presentation requiring DBP evaluation")
+            return "DBP", "High", reasoning
+        
+        # Check for psychiatric concerns without developmental issues
+        if "psych_flag" in flags and "dbp_flag" not in flags:
+            reasoning.append("Primary psychiatric concern in preschool-age child")
+            reasoning.append("No significant developmental/educational complexity identified")
+            reasoning.append("Psychiatry may be appropriate for medication management")
+            confidence = "Medium"
+            reasoning.append("⚠️ Consider developmental factors in this age group")
+            return "PPC", confidence, reasoning
+        
+        # Default to DBP for this age range
+        reasoning.append("Preschool age with concerns → DBP preferred")
+        return "DBP", "High", reasoning
+    
+    # AGE ≥ 6 YEARS: Selective DBP Use
+    else:
+        reasoning.append(f"📚 Age {age:.0f} years: Selective DBP criteria apply")
+        
+        # STEP 4: PRIMARY PSYCHIATRIC CONDITION SCREEN
+        if "psych_flag" in flags:
+            psych_concerns = []
+            if "hx_bipolar" in selected_items:
+                psych_concerns.append("Bipolar disorder")
+            if "hx_ocd" in selected_items:
+                psych_concerns.append("OCD")
+            if "hx_anxiety_panic" in selected_items:
+                psych_concerns.append("Anxiety/panic attacks")
+            if "hx_depression" in selected_items:
+                psych_concerns.append("Depression")
+            
+            if psych_concerns:
+                reasoning.append("Psychiatric conditions present:")
+                for concern in psych_concerns:
+                    reasoning.append(f"  • {concern}")
+            
+            # Check if developmental complexity also present
+            if "dbp_flag" in flags:
+                reasoning.append("Note: Developmental/educational complexity also present")
+                reasoning.append("Refer to Psychiatry for psychiatric management")
+                reasoning.append("DBP may co-manage later for developmental/school issues")
+                confidence = "Medium"
+                return "PPC", confidence, reasoning
+            else:
+                reasoning.append("Primary psychiatric condition without developmental complexity")
+                reasoning.append("→ Refer to Child & Adolescent Psychiatry")
+                return "PPC", "High", reasoning
+        
+        # STEP 5: DEVELOPMENTAL / SYSTEMS-BASED COMPLEXITY
+        if "dbp_flag" in flags:
+            reasoning.append("✅ DBP-Appropriate Complexity Identified:")
+            
+            complexity_factors = []
+            if "has_iep" in selected_items:
+                complexity_factors.append("School system involvement (IEP)")
+            if "has_504" in selected_items:
+                complexity_factors.append("School system involvement (504 Plan)")
+            if "referred_regional_center" in selected_items:
+                complexity_factors.append("Regional Center services")
+            if "receives_outpatient_services" in selected_items:
+                complexity_factors.append("Multiple therapy services")
+            if "parent_dev_or_behavioral_concerns" in selected_items:
+                complexity_factors.append("Parent-identified developmental/behavioral concerns")
+            
+            for factor in complexity_factors:
+                reasoning.append(f"  • {factor}")
+            
+            reasoning.append("Concerns span multiple domains requiring diagnostic integration")
+            reasoning.append("DBP appropriate for systems-based complexity and school navigation")
+            return "DBP", "High", reasoning
+        
+        # No clear complexity indicators for older child
+        reasoning.append("⚠️ Older child without clear DBP complexity indicators")
+        
+        if len(selected_items) == 0:
+            reasoning.append("No specific concerns identified")
+            reasoning.append("Consider whether specialist referral is needed")
+            return "DBP", "Low", reasoning
+        
+        # Has some concerns but unclear routing
+        reasoning.append("Some concerns present but unclear complexity")
+        reasoning.append("Consider whether developmental integration is truly needed")
+        reasoning.append("May benefit from clinical triage discussion")
+        confidence = "Medium"
+        return "DBP", confidence, reasoning
 
 def route_patient(age, primary_concern, comorbidities):
     """
@@ -387,11 +630,16 @@ if st.session_state.current_mode == "Test the Logic":
     st.subheader("🎯 Interactive Routing Simulator")
     st.markdown("*Use this tool to test routing logic with real-world patient presentations*")
     
+    # Initialize selected items in session state
+    if 'selected_items' not in st.session_state:
+        st.session_state.selected_items = set()
+    
     col1, col2 = st.columns([1, 1])
     
     with col1:
         st.markdown("### Patient Information")
         
+        # Age input
         age_years = st.slider("Patient Age (years)", 0, 18, 8)
         
         if age_years < 2:
@@ -401,104 +649,120 @@ if st.session_state.current_mode == "Test the Logic":
         else:
             age = age_years
         
-        primary_concern = st.selectbox(
-            "Primary Presenting Concern",
-            [
-                "Autism Concern (Need Evaluation)",
-                "Autism Spectrum (Diagnosed)",
-                "ADHD (Straightforward)",
-                "ADHD vs Autism Diagnostic Question",
-                "Developmental Delay / Milestone Concerns",
-                "Language Disorder",
-                "Learning Disability",
-                "Major Depressive Disorder",
-                "Severe Anxiety Disorder",
-                "Bipolar Disorder",
-                "Moderate to Severe OCD",
-                "Isolated Depression (No Developmental Concerns)",
-                "Isolated Anxiety (No Developmental Concerns)",
-                "Isolated OCD",
-                "Uncontrolled Seizures",
-                "Epilepsy Follow-up (No Developmental Concerns)",
-                "Frequent Headaches/Migraines",
-                "Straightforward Migraine Management",
-                "Complex Neurodevelopmental Profile",
-                "Diagnostic Uncertainty Across Domains",
-                "Medication Refills Only"
-            ]
-        )
+        # Selected items counter
+        num_selected = len(st.session_state.selected_items)
+        if num_selected > 0:
+            st.info(f"✓ {num_selected} concern(s) selected")
+        else:
+            st.warning("⚠️ No concerns selected - select relevant items below")
         
-        st.markdown("**Comorbidities / Additional Concerns**")
-        comorbidities = st.multiselect(
-            "Select all that apply:",
-            [
-                # Safety Concerns
-                "Suicidal Ideation",
-                "Suicide Attempt",
-                "Acute Psychiatric Crisis",
-                
-                # Neurologic Conditions
-                "Uncontrolled Seizures",
-                "Epilepsy",
-                "Serious Head Injury",
-                "Tuberous Sclerosis",
-                "Cerebral Palsy",
-                "Abnormal Neurogenetic Testing",
-                "Frequent Headaches/Migraines",
-                
-                # Developmental/Neurodevelopmental
-                "Autism Spectrum",
-                "ADHD",
-                "Developmental Delay",
-                "Learning Disability",
-                "Language Disorder",
-                "Milestone Loss/Plateau",
-                "Abnormal Developmental Screening",
-                
-                # Psychiatric
-                "Depression",
-                "Anxiety",
-                "Bipolar Disorder",
-                "Moderate to Severe OCD",
-                "Severe Anxiety or Panic Attacks",
-                "Psychiatric Hospitalization History",
-                "Mood Disorder Requiring Medication",
-                
-                # Systems/Services
-                "IEP or 504 Plan",
-                "Early Childhood Special Education",
-                "Regional Center Services",
-                "Receives Multiple Therapies (OT/PT/Speech/ABA)",
-                "School-System Complexity",
-                "Prior Neuro/Psych Care Insufficient",
-                
-                # Other Concerns
-                "Feeding Difficulties",
-                "Sleep Difficulties",
-                "Regulation Difficulties",
-                "Multidomain Concerns",
-                "Autism Spectrum + ADHD + Learning Disability"
-            ]
-        )
+        st.markdown("---")
         
-        additional_notes = st.text_area(
-            "Additional Clinical Notes (optional)",
-            placeholder="Any other relevant information..."
-        )
-        
-        if st.button("🔍 Route Patient", type="primary", use_container_width=True):
-            clinic, confidence, reasoning = route_patient(age, primary_concern, comorbidities)
-            
-            st.session_state.last_routing = {
-                "age": age,
-                "primary_concern": primary_concern,
-                "comorbidities": comorbidities,
-                "notes": additional_notes,
-                "clinic": clinic,
-                "confidence": confidence,
-                "reasoning": reasoning,
-                "timestamp": datetime.now().isoformat()
+        # Section-based button interface
+        sections_data = {
+            "neuro_history": {
+                "title": "🧠 Neurologic History",
+                "color": "#FFD100",
+                "items": [
+                    ("hx_serious_head_injury", "Serious head injury"),
+                    ("hx_seizures_convulsions_staring_spells", "Seizures, convulsions, or staring spells"),
+                    ("hx_frequent_headaches_migraines", "Frequent headaches or migraines"),
+                    ("hx_cerebral_palsy", "Cerebral palsy")
+                ]
+            },
+            "genetic_neurocutaneous": {
+                "title": "🧬 Genetic / Neurocutaneous Conditions",
+                "color": "#FFD100",
+                "items": [
+                    ("hx_abnormal_genetic_testing", "Abnormal genetic testing"),
+                    ("hx_tuberous_sclerosis", "Tuberous sclerosis")
+                ]
+            },
+            "mental_health_history": {
+                "title": "💭 Mental Health History",
+                "color": "#005587",
+                "items": [
+                    ("hx_bipolar", "Bipolar disorder"),
+                    ("hx_ocd", "Obsessive-compulsive disorder (OCD)"),
+                    ("hx_anxiety_panic", "Anxiety or panic attacks"),
+                    ("hx_depression", "Depression"),
+                    ("hx_suicidal_ideation_or_attempt", "Suicidal ideation or suicide attempt")
+                ]
+            },
+            "development_education_supports": {
+                "title": "📚 Developmental & Educational Supports",
+                "color": "#2774AE",
+                "items": [
+                    ("referred_regional_center", "Previously referred to Regional Center"),
+                    ("has_iep", "Has an Individualized Education Program (IEP)"),
+                    ("has_504", "Has a 504 Plan")
+                ]
+            },
+            "current_services": {
+                "title": "🏥 Current Services",
+                "color": "#2774AE",
+                "items": [
+                    ("receives_outpatient_services", "Receives outpatient services (therapy, psychiatry, neurology, ABA)")
+                ]
+            },
+            "parent_concerns": {
+                "title": "👨‍👩‍👧‍👦 Parent-Identified Concerns",
+                "color": "#2774AE",
+                "items": [
+                    ("parent_dev_or_behavioral_concerns", "Parent has developmental or behavioral concerns")
+                ]
             }
+        }
+        
+        # Custom CSS removed - now in main app CSS section
+        
+        # Render each section with toggle buttons
+        for section_id, section_data in sections_data.items():
+            st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
+            
+            # Create columns for buttons (2 per row)
+            cols = st.columns(2)
+            for idx, (item_id, item_label) in enumerate(section_data["items"]):
+                with cols[idx % 2]:
+                    is_selected = item_id in st.session_state.selected_items
+                    if st.button(
+                        item_label,
+                        key=f"btn_{item_id}",
+                        use_container_width=True,
+                        type="primary" if is_selected else "secondary"
+                    ):
+                        if is_selected:
+                            st.session_state.selected_items.remove(item_id)
+                        else:
+                            st.session_state.selected_items.add(item_id)
+                        st.rerun()
+        
+        st.markdown("---")
+        
+        # Route and Clear buttons
+        col_route, col_clear = st.columns(2)
+        with col_route:
+            if st.button("🔍 Route Patient", type="primary", use_container_width=True):
+                # Convert selected items to the format the routing function expects
+                selected_concerns = list(st.session_state.selected_items)
+                
+                clinic, confidence, reasoning = route_patient_new(age, selected_concerns)
+                
+                st.session_state.last_routing = {
+                    "age": age,
+                    "selected_concerns": selected_concerns,
+                    "clinic": clinic,
+                    "confidence": confidence,
+                    "reasoning": reasoning,
+                    "timestamp": datetime.now().isoformat()
+                }
+        
+        with col_clear:
+            if st.button("🔄 Clear All", use_container_width=True):
+                st.session_state.selected_items = set()
+                if 'last_routing' in st.session_state:
+                    del st.session_state.last_routing
+                st.rerun()
     
     with col2:
         st.markdown("### Routing Recommendation")
@@ -539,6 +803,18 @@ if st.session_state.current_mode == "Test the Logic":
             st.markdown("**Routing Reasoning:**")
             for reason in result['reasoning']:
                 st.markdown(f"• {reason}")
+            
+            # Selected items summary
+            if result['selected_concerns']:
+                st.markdown("---")
+                st.markdown("**Selected Concerns:**")
+                for concern in result['selected_concerns']:
+                    # Convert IDs back to readable labels
+                    for section_data in sections_data.values():
+                        for item_id, item_label in section_data['items']:
+                            if item_id == concern:
+                                st.markdown(f"• {item_label}")
+                                break
             
             # Feedback collection
             st.markdown("---")
