@@ -5,7 +5,7 @@ import json
 
 # Page config
 st.set_page_config(
-    page_title="UCLA Neuro Clinic Routing Prototype",
+    page_title="UCLA AI Triage Prototype",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -659,7 +659,7 @@ def route_patient(age, primary_concern, comorbidities):
             return "DBP", "Low", reasoning
 
 # Header
-st.markdown('<div class="main-header">🏥 UCLA Neuro Clinic Routing Prototype</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🏥 UCLA AI Triage Prototype</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Building the Next Generation Integrated Clinic • DBP • CAN • PPC</div>', unsafe_allow_html=True)
 
 # Mode selector
@@ -1478,7 +1478,7 @@ elif st.session_state.current_mode == "AI Vision":
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #005587; padding: 2rem;'>
-    <p><strong>UCLA Neuro Clinic Routing Prototype</strong></p>
+    <p><strong>UCLA AI Triage Prototype</strong></p>
     <p>A research tool for understanding clinical decision-making patterns in pediatric neurology referrals</p>
     <p style='font-size: 0.9rem; margin-top: 1rem;'>
         Built to facilitate collaboration between clinical expertise and systems engineering<br>
