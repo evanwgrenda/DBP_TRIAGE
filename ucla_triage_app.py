@@ -5,23 +5,24 @@ import json
 
 # Page config
 st.set_page_config(
-    page_title="UCLA Neuro Clinic Routing Prototype",
+    page_title="UCLA DBP Triage Prototype",
     page_icon="🏥",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS for professional medical styling
+# Custom CSS for UCLA styling
 st.markdown("""
 <style>
     .main-header {
         font-size: 2.5rem;
-        color: #2C5F8D;
+        color: #2774AE;
         font-weight: bold;
         margin-bottom: 0.5rem;
     }
     .sub-header {
         font-size: 1.2rem;
-        color: #666;
+        color: #005587;
         margin-bottom: 2rem;
     }
     .clinic-card {
@@ -31,28 +32,39 @@ st.markdown("""
         border-left: 5px solid;
     }
     .dbp-card {
-        background-color: #E3F2FD;
-        border-left-color: #1976D2;
+        background-color: #E8F4FA;
+        border-left-color: #2774AE;
     }
     .can-card {
-        background-color: #F3E5F5;
-        border-left-color: #7B1FA2;
+        background-color: #FFF9E6;
+        border-left-color: #FFD100;
     }
     .ppc-card {
-        background-color: #E8F5E9;
-        border-left-color: #388E3C;
+        background-color: #F0F7FB;
+        border-left-color: #005587;
     }
     .confidence-high {
-        color: #2E7D32;
+        color: #2774AE;
         font-weight: bold;
     }
     .confidence-medium {
-        color: #F57C00;
+        color: #FFB81C;
         font-weight: bold;
     }
     .confidence-low {
         color: #C62828;
         font-weight: bold;
+    }
+    div[data-testid="stButton"] button {
+        border-color: #2774AE;
+    }
+    div[data-testid="stButton"] button[kind="primary"] {
+        background-color: #2774AE;
+        border-color: #2774AE;
+    }
+    div[data-testid="stButton"] button[kind="primary"]:hover {
+        background-color: #005587;
+        border-color: #005587;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -70,17 +82,17 @@ CLINICS = {
     "DBP": {
         "name": "Developmental & Behavioral Pediatrics",
         "description": "Autism, ADHD, developmental delays in younger children",
-        "color": "#1976D2"
+        "color": "#2774AE"
     },
     "CAN": {
         "name": "Child & Adolescent Neurology",
         "description": "Epilepsy, complex neurological conditions, movement disorders",
-        "color": "#7B1FA2"
+        "color": "#FFD100"
     },
     "PPC": {
         "name": "Pediatric Psychiatry Clinic",
         "description": "Mood disorders, anxiety, behavioral health in older children/adolescents",
-        "color": "#388E3C"
+        "color": "#005587"
     }
 }
 
@@ -158,10 +170,10 @@ def route_patient(age, primary_concern, comorbidities):
 
 # Header
 st.markdown('<div class="main-header">🏥 UCLA Neuro Clinic Routing Prototype</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Building the Next Generation Integrated Clinic</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Building the Next Generation Integrated Clinic • DBP • CAN • PPC</div>', unsafe_allow_html=True)
 
 # Mode selector
-col1, col2, col3 = st.columns([1, 1, 1])
+col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 with col1:
     if st.button("🎯 Test the Logic", use_container_width=True, type="primary" if st.session_state.current_mode == "Test the Logic" else "secondary"):
         st.session_state.current_mode = "Test the Logic"
@@ -171,6 +183,9 @@ with col2:
 with col3:
     if st.button("📊 Session Data", use_container_width=True, type="primary" if st.session_state.current_mode == "Session Data" else "secondary"):
         st.session_state.current_mode = "Session Data"
+with col4:
+    if st.button("🚀 AI Vision", use_container_width=True, type="primary" if st.session_state.current_mode == "AI Vision" else "secondary"):
+        st.session_state.current_mode = "AI Vision"
 
 st.markdown("---")
 
@@ -494,10 +509,236 @@ elif st.session_state.current_mode == "Session Data":
     if not st.session_state.feedback_data and not st.session_state.edge_cases:
         st.info("No data collected yet. Use 'Test the Logic' or 'Edge Case Explorer' to generate research data.")
 
+# MODE 4: AI Vision
+elif st.session_state.current_mode == "AI Vision":
+    st.subheader("🚀 The AI Vision: From Rules to Intelligence")
+    st.markdown("*How this prototype could evolve into an AI-powered triage system*")
+    
+    # Three phases
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div class="clinic-card dbp-card">
+            <h3>📋 Phase 1: Today</h3>
+            <h4>Rule-Based Prototype</h4>
+            <p><strong>What:</strong> Simple decision tree based on age, symptoms, comorbidities</p>
+            <p><strong>Purpose:</strong> Validate logic, identify edge cases, establish baseline</p>
+            <p><strong>Status:</strong> ✅ Demo ready</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="clinic-card ppc-card">
+            <h3>🧠 Phase 2: 6-12 Months</h3>
+            <h4>AI Learning System</h4>
+            <p><strong>What:</strong> AI observes clinician routing decisions and learns patterns</p>
+            <p><strong>Purpose:</strong> Build training dataset of expert clinical reasoning</p>
+            <p><strong>Requires:</strong> IRB approval, data collection protocol</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div class="clinic-card can-card">
+            <h3>⚡ Phase 3: 12-24 Months</h3>
+            <h4>Intelligent Triage</h4>
+            <p><strong>What:</strong> AI routes 60-70% of cases automatically, flags complex cases</p>
+            <p><strong>Purpose:</strong> Operational efficiency + continuous learning</p>
+            <p><strong>Impact:</strong> Scales expertise, improves with use</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # What AI enables
+    st.markdown("### 🎯 What AI Enables (That Rules Can't Do)")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **1. Learns from Ambiguity**
+        - Rules: "If age < 10, route to DBP"
+        - AI: "For 9-year-olds with anxiety, you route to PPC 40% of the time and DBP 60%. The difference correlates with school refusal severity."
+        
+        **2. Handles Unstructured Data**
+        - Rules: Need structured dropdowns
+        - AI: Processes free-text referral notes
+        - Example: "Mom reports 'meltdowns'" → AI recognizes behavioral regulation concern
+        
+        **3. Continuous Improvement**
+        - Rules: Static, require manual updates
+        - AI: Gets better with every referral
+        - After 10,000 cases: Better than junior staff
+        """)
+    
+    with col2:
+        st.markdown("""
+        **4. Generates Research Insights**
+        - "Autism + mood symptoms route to PPC 3x more often when patient is >12 years old"
+        - "Referrals mentioning 'school refusal' have 60% anxiety comorbidity"
+        - These patterns become publications
+        
+        **5. Provides Explanations**
+        - "I recommend CAN because:
+          - New onset seizures (85% CAN probability)
+          - Age 7 (young age increases CAN likelihood)
+          - Similar to 47 past cases, 89% went to CAN"
+        """)
+    
+    st.markdown("---")
+    
+    # How it works
+    st.markdown("### 🔄 How Intelligent Triage Works")
+    
+    scenarios = [
+        {
+            "title": "Straightforward Cases (60-70%)",
+            "emoji": "✅",
+            "color": "#E8F4FA",
+            "border": "#2774AE",
+            "description": "AI routes automatically with high confidence",
+            "example": "8-year-old with ADHD, no comorbidities → DBP",
+            "action": "Clinician can override if needed"
+        },
+        {
+            "title": "Complex Cases (20-30%)",
+            "emoji": "⚠️",
+            "color": "#FFF9E6",
+            "border": "#FFD100",
+            "description": "AI flags for expert review with reasoning",
+            "example": "13-year-old autism + new suicidal ideation",
+            "action": "System explains: 'Medium confidence - psychiatric symptoms in developmentally complex patient'"
+        },
+        {
+            "title": "Urgent Cases (5-10%)",
+            "emoji": "🚨",
+            "color": "#FFEBEE",
+            "border": "#C62828",
+            "description": "AI detects crisis language and escalates immediately",
+            "example": "Active suicidal plan with specific method",
+            "action": "Immediate crisis pathway activation"
+        },
+        {
+            "title": "Novel Cases (Edge Cases)",
+            "emoji": "❓",
+            "color": "#F0F7FB",
+            "border": "#005587",
+            "description": "System recognizes unfamiliar patterns",
+            "example": "Presentation doesn't match any training data",
+            "action": "Expert review required - system is learning"
+        }
+    ]
+    
+    for scenario in scenarios:
+        st.markdown(f"""
+        <div style="background-color: {scenario['color']}; padding: 15px; border-radius: 10px; margin: 10px 0; border-left: 5px solid {scenario['border']};">
+            <h4>{scenario['emoji']} {scenario['title']}</h4>
+            <p><strong>How it works:</strong> {scenario['description']}</p>
+            <p><strong>Example:</strong> {scenario['example']}</p>
+            <p><strong>Action:</strong> {scenario['action']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Value proposition
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 💼 Operational Value")
+        st.markdown("""
+        - **40-60% time reduction** on routine referrals
+        - **Consistent routing** across all staff
+        - **Handle volume growth** without adding headcount
+        - **Reduce routing errors** (wrong clinic = care delays)
+        - **Flag multi-clinic** consultation needs
+        """)
+        
+        st.markdown("### 🏆 Strategic Value")
+        st.markdown("""
+        - **UCLA becomes leader** in pediatric neuro AI
+        - **First-of-its-kind** in behavioral neurology
+        - **Attract research funding** and partnerships
+        - **Licensable model** for other medical centers
+        """)
+    
+    with col2:
+        st.markdown("### 🔬 Research Value")
+        st.markdown("""
+        - **Publications** on clinical decision-making patterns
+        - **Training data** for national pediatric neuro AI
+        - **Grant opportunities** in implementation science
+        - **Study question:** "How do expert clinicians make routing decisions in complex cases?"
+        """)
+        
+        st.markdown("### 📈 Proven Precedents")
+        st.markdown("""
+        - **Epic Sepsis Prediction:** 100+ hospitals, mortality reduction
+        - **Stanford Radiology AI:** 30% workload reduction
+        - **Mass General ED Triage:** 15% wait time reduction
+        
+        *Your system would be the first in pediatric behavioral neurology*
+        """)
+    
+    st.markdown("---")
+    
+    # The immediate collaboration
+    st.markdown("### 🤝 The Immediate Next Steps (3 Months)")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        **1. Validate Prototype**
+        - Test with 20-30 real cases
+        - Document where logic breaks
+        - Refine routing criteria
+        """)
+    
+    with col2:
+        st.markdown("""
+        **2. Document Edge Cases**
+        - Systematic collection
+        - Capture expert reasoning
+        - Build initial training data
+        """)
+    
+    with col3:
+        st.markdown("""
+        **3. Establish Baseline**
+        - Current routing patterns
+        - Agreement rates
+        - Pursue IRB approval
+        """)
+    
+    st.markdown("---")
+    
+    # The vision
+    st.info("""
+    **The Vision:** A system where families get same-day routing responses, clinicians focus expertise on 
+    truly complex cases, the system learns from every decision, UCLA publishes groundbreaking research, 
+    and other medical centers adopt your model.
+    
+    *"This is about scaling your expertise, not replacing it. Every referral you route becomes training 
+    data for an AI that gets smarter with every decision you make."*
+    """)
+    
+    # The research question
+    st.success("""
+    **Core Research Question:** What clinical factors predict disagreement between rule-based routing 
+    and expert clinical judgment in complex pediatric neurology referrals?
+    
+    This question is publishable regardless of whether we build the AI system. The prototype you're 
+    testing today is already collecting that research data.
+    """)
+
 # Footer
 st.markdown("---")
 st.markdown("""
-<div style='text-align: center; color: #666; padding: 2rem;'>
+<div style='text-align: center; color: #005587; padding: 2rem;'>
     <p><strong>UCLA Neuro Clinic Routing Prototype</strong></p>
     <p>A research tool for understanding clinical decision-making patterns in pediatric neurology referrals</p>
     <p style='font-size: 0.9rem; margin-top: 1rem;'>
