@@ -82,23 +82,33 @@ st.markdown("""
         border-color: #005587;
     }
     .section-header {
-        font-size: 16px;
+        font-size: 15px;
         font-weight: bold;
-        margin-top: 20px;
-        margin-bottom: 15px;
-        padding: 12px 15px;
-        border-radius: 8px;
+        margin-top: 8px;
+        margin-bottom: 8px;
+        padding: 8px 12px;
+        border-radius: 6px;
     }
-    /* Checkbox styling */
+    /* Checkbox styling - condensed */
     div[data-testid="stCheckbox"] {
-        padding: 8px 0;
+        padding: 2px 0;
+        margin: 0;
     }
     div[data-testid="stCheckbox"] label {
-        font-size: 15px;
+        font-size: 14px;
         color: #333;
+        line-height: 1.3;
     }
     div[data-testid="stCheckbox"] label:hover {
         color: #2774AE;
+    }
+    /* Reduce spacing between elements */
+    .stMarkdown {
+        margin-bottom: 0.3rem;
+    }
+    /* Reduce text area spacing */
+    div[data-testid="stTextArea"] {
+        margin-bottom: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -711,26 +721,23 @@ if st.session_state.current_mode == "Test the Logic":
     else:
         st.warning("⚠️ No concerns selected - select relevant items below")
     
-    st.markdown("---")
-    
-    # Parent-Identified Concerns Section (Text Area) - MOVED TO TOP
+    # Parent-Identified Concerns Section (Text Area) - AT TOP
     st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, #2774AE22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid #2774AE;">👨‍👩‍👧‍👦 Parent-Identified Concerns</div>', unsafe_allow_html=True)
     parent_concerns_text = st.text_area(
         "What are the parent's specific concerns?",
         value=st.session_state.parent_concerns_text,
         placeholder="e.g., 'Not speaking as much as siblings did at this age', 'Having meltdowns at school', 'Difficulty making friends'...",
-        height=100,
-        key="parent_concerns_input"
+        height=80,
+        key="parent_concerns_input",
+        label_visibility="collapsed"
     )
     st.session_state.parent_concerns_text = parent_concerns_text
     
-    st.markdown("---")
-    
-    # Section-based button interface with two-column layout
+    # Section-based button interface with single-column layout
     sections_data = {
         "neuro_history": {
             "title": "🧠 Neurologic History",
-            "color": "#FFD100",
+            "color": "#2774AE",
             "items": [
                 ("hx_serious_head_injury", "Serious head injury"),
                 ("hx_seizures_convulsions_staring_spells", "Seizures, convulsions, or staring spells"),
@@ -740,7 +747,7 @@ if st.session_state.current_mode == "Test the Logic":
         },
         "genetic_neurocutaneous": {
             "title": "🧬 Genetic / Neurocutaneous Conditions",
-            "color": "#FFD100",
+            "color": "#2774AE",
             "items": [
                 ("hx_abnormal_genetic_testing", "Abnormal genetic testing"),
                 ("hx_tuberous_sclerosis", "Tuberous sclerosis")
@@ -748,7 +755,7 @@ if st.session_state.current_mode == "Test the Logic":
         },
         "mental_health_history": {
             "title": "💭 Mental Health History",
-            "color": "#005587",
+            "color": "#2774AE",
             "items": [
                 ("hx_bipolar", "Bipolar disorder"),
                 ("hx_ocd", "Obsessive-compulsive disorder (OCD)"),
@@ -780,73 +787,34 @@ if st.session_state.current_mode == "Test the Logic":
         }
     }
     
-    # Define section groups for two-column layout
-    section_groups = [
-        ["neuro_history", "genetic_neurocutaneous"],  # Row 1: Two columns
-        ["mental_health_history", "development_education_supports"],  # Row 2: Two columns
-        ["current_services"]  # Row 3: Full width
-    ]
-    
-    # Render sections in groups
-    for group in section_groups:
-        if len(group) == 2:
-            # Two-column layout
-            col_left, col_right = st.columns(2)
-            
-            # Left column section
-            with col_left:
-                section_id = group[0]
-                section_data = sections_data[section_id]
-                st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
-                
-                # Render checkboxes in this section
-                for item_id, item_label in section_data["items"]:
-                    is_selected = item_id in st.session_state.selected_items
-                    if st.checkbox(
-                        item_label,
-                        value=is_selected,
-                        key=f"chk_{item_id}"
-                    ):
-                        if item_id not in st.session_state.selected_items:
-                            st.session_state.selected_items.add(item_id)
-                    else:
-                        if item_id in st.session_state.selected_items:
-                            st.session_state.selected_items.remove(item_id)
-            
-            # Right column section
-            with col_right:
-                section_id = group[1]
-                section_data = sections_data[section_id]
-                st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
-                
-                # Render checkboxes in this section
-                for item_id, item_label in section_data["items"]:
-                    is_selected = item_id in st.session_state.selected_items
-                    if st.checkbox(
-                        item_label,
-                        value=is_selected,
-                        key=f"chk_{item_id}"
-                    ):
-                        if item_id not in st.session_state.selected_items:
-                            st.session_state.selected_items.add(item_id)
-                    else:
-                        if item_id in st.session_state.selected_items:
-                            st.session_state.selected_items.remove(item_id)
+    # Render all sections in single column
+    for section_id, section_data in sections_data.items():
+        st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
         
-        else:
-            # Full width section
-            section_id = group[0]
-            section_data = sections_data[section_id]
-            st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
+        # Render checkboxes in 2-column grid within each section
+        items = section_data["items"]
+        for i in range(0, len(items), 2):
+            cols = st.columns(2)
             
-            # Render checkboxes in 2-column grid
-            items = section_data["items"]
-            for i in range(0, len(items), 2):
-                cols = st.columns(2)
-                
-                # First checkbox in the row
-                item_id, item_label = items[i]
-                with cols[0]:
+            # First checkbox in the row
+            item_id, item_label = items[i]
+            with cols[0]:
+                is_selected = item_id in st.session_state.selected_items
+                if st.checkbox(
+                    item_label,
+                    value=is_selected,
+                    key=f"chk_{item_id}"
+                ):
+                    if item_id not in st.session_state.selected_items:
+                        st.session_state.selected_items.add(item_id)
+                else:
+                    if item_id in st.session_state.selected_items:
+                        st.session_state.selected_items.remove(item_id)
+            
+            # Second checkbox in the row (if exists)
+            if i + 1 < len(items):
+                item_id, item_label = items[i + 1]
+                with cols[1]:
                     is_selected = item_id in st.session_state.selected_items
                     if st.checkbox(
                         item_label,
@@ -858,22 +826,6 @@ if st.session_state.current_mode == "Test the Logic":
                     else:
                         if item_id in st.session_state.selected_items:
                             st.session_state.selected_items.remove(item_id)
-                
-                # Second checkbox in the row (if exists)
-                if i + 1 < len(items):
-                    item_id, item_label = items[i + 1]
-                    with cols[1]:
-                        is_selected = item_id in st.session_state.selected_items
-                        if st.checkbox(
-                            item_label,
-                            value=is_selected,
-                            key=f"chk_{item_id}"
-                        ):
-                            if item_id not in st.session_state.selected_items:
-                                st.session_state.selected_items.add(item_id)
-                        else:
-                            if item_id in st.session_state.selected_items:
-                                st.session_state.selected_items.remove(item_id)
     
     # Route and Clear buttons
     col_route, col_clear = st.columns(2)
