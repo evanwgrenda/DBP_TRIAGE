@@ -713,6 +713,19 @@ if st.session_state.current_mode == "Test the Logic":
     
     st.markdown("---")
     
+    # Parent-Identified Concerns Section (Text Area) - MOVED TO TOP
+    st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, #2774AE22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid #2774AE;">👨‍👩‍👧‍👦 Parent-Identified Concerns</div>', unsafe_allow_html=True)
+    parent_concerns_text = st.text_area(
+        "What are the parent's specific concerns?",
+        value=st.session_state.parent_concerns_text,
+        placeholder="e.g., 'Not speaking as much as siblings did at this age', 'Having meltdowns at school', 'Difficulty making friends'...",
+        height=100,
+        key="parent_concerns_input"
+    )
+    st.session_state.parent_concerns_text = parent_concerns_text
+    
+    st.markdown("---")
+    
     # Section-based button interface with two-column layout
     sections_data = {
         "neuro_history": {
@@ -861,19 +874,6 @@ if st.session_state.current_mode == "Test the Logic":
                         else:
                             if item_id in st.session_state.selected_items:
                                 st.session_state.selected_items.remove(item_id)
-    
-    # Parent-Identified Concerns Section (Text Area)
-    st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, #2774AE22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid #2774AE;">👨‍👩‍👧‍👦 Parent-Identified Concerns</div>', unsafe_allow_html=True)
-    parent_concerns_text = st.text_area(
-        "What are the parent's specific concerns?",
-        value=st.session_state.parent_concerns_text,
-        placeholder="e.g., 'Not speaking as much as siblings did at this age', 'Having meltdowns at school', 'Difficulty making friends'...",
-        height=100,
-        key="parent_concerns_input"
-    )
-    st.session_state.parent_concerns_text = parent_concerns_text
-    
-    st.markdown("---")
     
     # Route and Clear buttons
     col_route, col_clear = st.columns(2)
