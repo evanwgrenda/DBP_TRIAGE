@@ -5,7 +5,7 @@ import json
 
 # Page config
 st.set_page_config(
-    page_title="UCLA AI Triage Prototype",
+    page_title="UCLA Neuro Clinic Routing Prototype",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -144,18 +144,21 @@ ITEM_FLAGS = {
     "has_504": ["dbp_flag"],
     
     # Current Services
-    "receives_outpatient_services": ["dbp_flag"],
-    
-    # Parent Concerns
-    "parent_dev_or_behavioral_concerns": ["dbp_flag"]
+    "receives_occupational_therapy": ["dbp_flag"],
+    "receives_aba_therapy": ["dbp_flag"],
+    "receives_speech_therapy": ["dbp_flag"],
+    "receives_social_skills_training": ["dbp_flag"],
+    "receives_cbt_therapy": ["dbp_flag"],
+    "receives_physical_therapy": ["dbp_flag"]
 }
 
-def route_patient_new(age, selected_items):
+def route_patient_new(age, selected_items, parent_concerns_text=""):
     """
     New routing function that works with button-based interface
     Args:
         age: patient age in years (float for infants)
         selected_items: list of selected item IDs
+        parent_concerns_text: free text of parent concerns
     Returns: (clinic, confidence, reasoning)
     """
     reasoning = []
@@ -166,6 +169,10 @@ def route_patient_new(age, selected_items):
     for item_id in selected_items:
         if item_id in ITEM_FLAGS:
             flags.update(ITEM_FLAGS[item_id])
+    
+    # Add dbp_flag if parent has concerns (text is present)
+    if parent_concerns_text and parent_concerns_text.strip():
+        flags.add("dbp_flag")
     
     # STEP 2: SAFETY SCREEN (Highest Priority)
     if "safety_flag" in flags:
@@ -214,8 +221,10 @@ def route_patient_new(age, selected_items):
         reasoning.append("👶 Age < 2 years: DBP Fast-Track Priority")
         reasoning.append("Early intervention is critical for developmental and behavioral concerns")
         
-        if "dbp_flag" in flags or "parent_dev_or_behavioral_concerns" in selected_items:
+        if "dbp_flag" in flags or parent_concerns_text.strip():
             reasoning.append("Developmental, behavioral, or regulatory concern identified")
+            if parent_concerns_text.strip():
+                reasoning.append(f"Parent concerns: \"{parent_concerns_text[:100]}...\"" if len(parent_concerns_text) > 100 else f"Parent concerns: \"{parent_concerns_text}\"")
             reasoning.append("→ DBP for developmental assessment and early intervention services")
             return "DBP", "High", reasoning
         
@@ -242,9 +251,26 @@ def route_patient_new(age, selected_items):
                 dbp_indicators.append("Has IEP")
             if "has_504" in selected_items:
                 dbp_indicators.append("Has 504 Plan")
-            if "receives_outpatient_services" in selected_items:
-                dbp_indicators.append("Receiving outpatient services")
-            if "parent_dev_or_behavioral_concerns" in selected_items:
+            
+            # List specific services
+            service_items = [
+                ("receives_occupational_therapy", "Occupational Therapy"),
+                ("receives_aba_therapy", "ABA Therapy"),
+                ("receives_speech_therapy", "Speech Therapy"),
+                ("receives_social_skills_training", "Social Skills Training"),
+                ("receives_cbt_therapy", "CBT Therapy"),
+                ("receives_physical_therapy", "Physical Therapy")
+            ]
+            
+            services = []
+            for item_id, service_name in service_items:
+                if item_id in selected_items:
+                    services.append(service_name)
+            
+            if services:
+                dbp_indicators.append(f"Receiving services: {', '.join(services)}")
+            
+            if parent_concerns_text.strip():
                 dbp_indicators.append("Parent has developmental/behavioral concerns")
             
             if dbp_indicators:
@@ -312,9 +338,26 @@ def route_patient_new(age, selected_items):
                 complexity_factors.append("School system involvement (504 Plan)")
             if "referred_regional_center" in selected_items:
                 complexity_factors.append("Regional Center services")
-            if "receives_outpatient_services" in selected_items:
-                complexity_factors.append("Multiple therapy services")
-            if "parent_dev_or_behavioral_concerns" in selected_items:
+            
+            # List specific services
+            service_items = [
+                ("receives_occupational_therapy", "Occupational Therapy"),
+                ("receives_aba_therapy", "ABA Therapy"),
+                ("receives_speech_therapy", "Speech Therapy"),
+                ("receives_social_skills_training", "Social Skills Training"),
+                ("receives_cbt_therapy", "CBT Therapy"),
+                ("receives_physical_therapy", "Physical Therapy")
+            ]
+            
+            services = []
+            for item_id, service_name in service_items:
+                if item_id in selected_items:
+                    services.append(service_name)
+            
+            if services:
+                complexity_factors.append(f"Receiving services: {', '.join(services)}")
+            
+            if parent_concerns_text.strip():
                 complexity_factors.append("Parent-identified developmental/behavioral concerns")
             
             for factor in complexity_factors:
@@ -327,7 +370,7 @@ def route_patient_new(age, selected_items):
         # No clear complexity indicators for older child
         reasoning.append("⚠️ Older child without clear DBP complexity indicators")
         
-        if len(selected_items) == 0:
+        if len(selected_items) == 0 and not parent_concerns_text.strip():
             reasoning.append("No specific concerns identified")
             reasoning.append("Consider whether specialist referral is needed")
             return "DBP", "Low", reasoning
@@ -605,7 +648,7 @@ def route_patient(age, primary_concern, comorbidities):
             return "DBP", "Low", reasoning
 
 # Header
-st.markdown('<div class="main-header">🏥 UCLA AI Triage Prototype</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🏥 UCLA Neuro Clinic Routing Prototype</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Building the Next Generation Integrated Clinic • DBP • CAN • PPC</div>', unsafe_allow_html=True)
 
 # Mode selector
@@ -634,179 +677,194 @@ if st.session_state.current_mode == "Test the Logic":
     if 'selected_items' not in st.session_state:
         st.session_state.selected_items = set()
     
-    col1, col2 = st.columns([1, 1])
+    # Initialize parent concerns text in session state
+    if 'parent_concerns_text' not in st.session_state:
+        st.session_state.parent_concerns_text = ""
     
-    with col1:
-        st.markdown("### Patient Information")
-        
-        # Age input
-        age_years = st.slider("Patient Age (years)", 0, 18, 8)
-        
-        if age_years < 2:
-            age_months = st.slider("Age in Months", 0, 23, age_years * 12)
-            age = age_months / 12.0
-            st.caption(f"Total age: {age_months} months ({age:.1f} years)")
-        else:
-            age = age_years
-        
-        # Selected items counter
-        num_selected = len(st.session_state.selected_items)
-        if num_selected > 0:
-            st.info(f"✓ {num_selected} concern(s) selected")
-        else:
-            st.warning("⚠️ No concerns selected - select relevant items below")
-        
-        st.markdown("---")
-        
-        # Section-based button interface
-        sections_data = {
-            "neuro_history": {
-                "title": "🧠 Neurologic History",
-                "color": "#FFD100",
-                "items": [
-                    ("hx_serious_head_injury", "Serious head injury"),
-                    ("hx_seizures_convulsions_staring_spells", "Seizures, convulsions, or staring spells"),
-                    ("hx_frequent_headaches_migraines", "Frequent headaches or migraines"),
-                    ("hx_cerebral_palsy", "Cerebral palsy")
-                ]
-            },
-            "genetic_neurocutaneous": {
-                "title": "🧬 Genetic / Neurocutaneous Conditions",
-                "color": "#FFD100",
-                "items": [
-                    ("hx_abnormal_genetic_testing", "Abnormal genetic testing"),
-                    ("hx_tuberous_sclerosis", "Tuberous sclerosis")
-                ]
-            },
-            "mental_health_history": {
-                "title": "💭 Mental Health History",
-                "color": "#005587",
-                "items": [
-                    ("hx_bipolar", "Bipolar disorder"),
-                    ("hx_ocd", "Obsessive-compulsive disorder (OCD)"),
-                    ("hx_anxiety_panic", "Anxiety or panic attacks"),
-                    ("hx_depression", "Depression"),
-                    ("hx_suicidal_ideation_or_attempt", "Suicidal ideation or suicide attempt")
-                ]
-            },
-            "development_education_supports": {
-                "title": "📚 Developmental & Educational Supports",
-                "color": "#2774AE",
-                "items": [
-                    ("referred_regional_center", "Previously referred to Regional Center"),
-                    ("has_iep", "Has an Individualized Education Program (IEP)"),
-                    ("has_504", "Has a 504 Plan")
-                ]
-            },
-            "current_services": {
-                "title": "🏥 Current Services",
-                "color": "#2774AE",
-                "items": [
-                    ("receives_outpatient_services", "Receives outpatient services (therapy, psychiatry, neurology, ABA)")
-                ]
-            },
-            "parent_concerns": {
-                "title": "👨‍👩‍👧‍👦 Parent-Identified Concerns",
-                "color": "#2774AE",
-                "items": [
-                    ("parent_dev_or_behavioral_concerns", "Parent has developmental or behavioral concerns")
-                ]
-            }
+    st.markdown("### Patient Information")
+    
+    # Age input
+    age_years = st.slider("Patient Age (years)", 0, 18, 8)
+    
+    if age_years < 2:
+        age_months = st.slider("Age in Months", 0, 23, age_years * 12)
+        age = age_months / 12.0
+        st.caption(f"Total age: {age_months} months ({age:.1f} years)")
+    else:
+        age = age_years
+    
+    # Selected items counter
+    num_selected = len(st.session_state.selected_items)
+    if num_selected > 0:
+        st.info(f"✓ {num_selected} concern(s) selected")
+    else:
+        st.warning("⚠️ No concerns selected - select relevant items below")
+    
+    st.markdown("---")
+    
+    # Section-based button interface
+    sections_data = {
+        "neuro_history": {
+            "title": "🧠 Neurologic History",
+            "color": "#FFD100",
+            "items": [
+                ("hx_serious_head_injury", "Serious head injury"),
+                ("hx_seizures_convulsions_staring_spells", "Seizures, convulsions, or staring spells"),
+                ("hx_frequent_headaches_migraines", "Frequent headaches or migraines"),
+                ("hx_cerebral_palsy", "Cerebral palsy")
+            ]
+        },
+        "genetic_neurocutaneous": {
+            "title": "🧬 Genetic / Neurocutaneous Conditions",
+            "color": "#FFD100",
+            "items": [
+                ("hx_abnormal_genetic_testing", "Abnormal genetic testing"),
+                ("hx_tuberous_sclerosis", "Tuberous sclerosis")
+            ]
+        },
+        "mental_health_history": {
+            "title": "💭 Mental Health History",
+            "color": "#005587",
+            "items": [
+                ("hx_bipolar", "Bipolar disorder"),
+                ("hx_ocd", "Obsessive-compulsive disorder (OCD)"),
+                ("hx_anxiety_panic", "Anxiety or panic attacks"),
+                ("hx_depression", "Depression"),
+                ("hx_suicidal_ideation_or_attempt", "Suicidal ideation or suicide attempt")
+            ]
+        },
+        "development_education_supports": {
+            "title": "📚 Developmental & Educational Supports",
+            "color": "#2774AE",
+            "items": [
+                ("referred_regional_center", "Previously referred to Regional Center"),
+                ("has_iep", "Has an Individualized Education Program (IEP)"),
+                ("has_504", "Has a 504 Plan")
+            ]
+        },
+        "current_services": {
+            "title": "🏥 Current Services",
+            "color": "#2774AE",
+            "items": [
+                ("receives_occupational_therapy", "Occupational Therapy (OT)"),
+                ("receives_aba_therapy", "ABA Therapy"),
+                ("receives_speech_therapy", "Speech Therapy"),
+                ("receives_social_skills_training", "Social Skills Training"),
+                ("receives_cbt_therapy", "CBT Therapy"),
+                ("receives_physical_therapy", "Physical Therapy")
+            ]
         }
-        
-        # Custom CSS removed - now in main app CSS section
-        
-        # Render each section with toggle buttons
-        for section_id, section_data in sections_data.items():
-            st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
-            
-            # Create columns for buttons (2 per row)
-            cols = st.columns(2)
-            for idx, (item_id, item_label) in enumerate(section_data["items"]):
-                with cols[idx % 2]:
-                    is_selected = item_id in st.session_state.selected_items
-                    if st.button(
-                        item_label,
-                        key=f"btn_{item_id}",
-                        use_container_width=True,
-                        type="primary" if is_selected else "secondary"
-                    ):
-                        if is_selected:
-                            st.session_state.selected_items.remove(item_id)
-                        else:
-                            st.session_state.selected_items.add(item_id)
-                        st.rerun()
-        
-        st.markdown("---")
-        
-        # Route and Clear buttons
-        col_route, col_clear = st.columns(2)
-        with col_route:
-            if st.button("🔍 Route Patient", type="primary", use_container_width=True):
-                # Convert selected items to the format the routing function expects
-                selected_concerns = list(st.session_state.selected_items)
-                
-                clinic, confidence, reasoning = route_patient_new(age, selected_concerns)
-                
-                st.session_state.last_routing = {
-                    "age": age,
-                    "selected_concerns": selected_concerns,
-                    "clinic": clinic,
-                    "confidence": confidence,
-                    "reasoning": reasoning,
-                    "timestamp": datetime.now().isoformat()
-                }
-        
-        with col_clear:
-            if st.button("🔄 Clear All", use_container_width=True):
-                st.session_state.selected_items = set()
-                if 'last_routing' in st.session_state:
-                    del st.session_state.last_routing
-                st.rerun()
+    }
     
-    with col2:
-        st.markdown("### Routing Recommendation")
+    # Custom CSS removed - now in main app CSS section
+    
+    # Render each section with toggle buttons
+    for section_id, section_data in sections_data.items():
+        st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
         
-        if 'last_routing' in st.session_state:
-            result = st.session_state.last_routing
-            clinic_info = CLINICS[result['clinic']]
+        # Create columns for buttons (2 per row)
+        cols = st.columns(2)
+        for idx, (item_id, item_label) in enumerate(section_data["items"]):
+            with cols[idx % 2]:
+                is_selected = item_id in st.session_state.selected_items
+                if st.button(
+                    item_label,
+                    key=f"btn_{item_id}",
+                    use_container_width=True,
+                    type="primary" if is_selected else "secondary"
+                ):
+                    if is_selected:
+                        st.session_state.selected_items.remove(item_id)
+                    else:
+                        st.session_state.selected_items.add(item_id)
+                    st.rerun()
+    
+    # Parent-Identified Concerns Section (Text Area)
+    st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, #2774AE22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid #2774AE;">👨‍👩‍👧‍👦 Parent-Identified Concerns</div>', unsafe_allow_html=True)
+    parent_concerns_text = st.text_area(
+        "What are the parent's specific concerns?",
+        value=st.session_state.parent_concerns_text,
+        placeholder="e.g., 'Not speaking as much as siblings did at this age', 'Having meltdowns at school', 'Difficulty making friends'...",
+        height=100,
+        key="parent_concerns_input"
+    )
+    st.session_state.parent_concerns_text = parent_concerns_text
+    
+    st.markdown("---")
+    
+    # Route and Clear buttons
+    col_route, col_clear = st.columns(2)
+    with col_route:
+        if st.button("🔍 Route Patient", type="primary", use_container_width=True):
+            # Convert selected items to the format the routing function expects
+            selected_concerns = list(st.session_state.selected_items)
             
-            # Display clinic recommendation
-            if result['clinic'] == "DBP":
-                card_class = "dbp-card"
-            elif result['clinic'] == "CAN":
-                card_class = "can-card"
-            else:
-                card_class = "ppc-card"
+            clinic, confidence, reasoning = route_patient_new(age, selected_concerns, parent_concerns_text)
             
-            st.markdown(f"""
-            <div class="clinic-card {card_class}">
-                <h2>{clinic_info['name']}</h2>
-                <p>{clinic_info['description']}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Confidence level
-            if result['confidence'] == "High":
-                conf_class = "confidence-high"
-                conf_emoji = "✅"
-            elif result['confidence'] == "Medium":
-                conf_class = "confidence-medium"
-                conf_emoji = "⚠️"
-            else:
-                conf_class = "confidence-low"
-                conf_emoji = "❓"
-            
-            st.markdown(f"**Confidence Level:** <span class='{conf_class}'>{conf_emoji} {result['confidence']}</span>", unsafe_allow_html=True)
-            
-            # Reasoning
-            st.markdown("**Routing Reasoning:**")
-            for reason in result['reasoning']:
-                st.markdown(f"• {reason}")
-            
-            # Selected items summary
+            st.session_state.last_routing = {
+                "age": age,
+                "selected_concerns": selected_concerns,
+                "parent_concerns_text": parent_concerns_text,
+                "clinic": clinic,
+                "confidence": confidence,
+                "reasoning": reasoning,
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    with col_clear:
+        if st.button("🔄 Clear All", use_container_width=True):
+            st.session_state.selected_items = set()
+            st.session_state.parent_concerns_text = ""
+            if 'last_routing' in st.session_state:
+                del st.session_state.last_routing
+            st.rerun()
+    
+    # Routing Recommendation (Bottom of page)
+    if 'last_routing' in st.session_state:
+        st.markdown("---")
+        st.markdown("### 🎯 Routing Recommendation")
+        
+        result = st.session_state.last_routing
+        clinic_info = CLINICS[result['clinic']]
+        
+        # Display clinic recommendation
+        if result['clinic'] == "DBP":
+            card_class = "dbp-card"
+        elif result['clinic'] == "CAN":
+            card_class = "can-card"
+        else:
+            card_class = "ppc-card"
+        
+        st.markdown(f"""
+        <div class="clinic-card {card_class}">
+            <h2>{clinic_info['name']}</h2>
+            <p>{clinic_info['description']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Confidence level
+        if result['confidence'] == "High":
+            conf_class = "confidence-high"
+            conf_emoji = "✅"
+        elif result['confidence'] == "Medium":
+            conf_class = "confidence-medium"
+            conf_emoji = "⚠️"
+        else:
+            conf_class = "confidence-low"
+            conf_emoji = "❓"
+        
+        st.markdown(f"**Confidence Level:** <span class='{conf_class}'>{conf_emoji} {result['confidence']}</span>", unsafe_allow_html=True)
+        
+        # Reasoning
+        st.markdown("**Routing Reasoning:**")
+        for reason in result['reasoning']:
+            st.markdown(f"• {reason}")
+        
+        # Selected items summary
+        col_summary1, col_summary2 = st.columns(2)
+        
+        with col_summary1:
             if result['selected_concerns']:
-                st.markdown("---")
                 st.markdown("**Selected Concerns:**")
                 for concern in result['selected_concerns']:
                     # Convert IDs back to readable labels
@@ -815,45 +873,50 @@ if st.session_state.current_mode == "Test the Logic":
                             if item_id == concern:
                                 st.markdown(f"• {item_label}")
                                 break
-            
-            # Feedback collection
-            st.markdown("---")
-            st.markdown("### 🎓 Clinical Validation")
-            st.markdown("*This is where we learn from your expertise*")
-            
-            matches = st.radio(
-                "Does this match your clinical judgment?",
-                ["Yes - This routing is correct", "No - I would route differently", "Uncertain - Complex case"],
-                key="feedback_radio"
+        
+        with col_summary2:
+            if result.get('parent_concerns_text'):
+                st.markdown("**Parent Concerns:**")
+                st.markdown(f"*\"{result['parent_concerns_text']}\"*")
+        
+        # Feedback collection
+        st.markdown("---")
+        st.markdown("### 🎓 Clinical Validation")
+        st.markdown("*This is where we learn from your expertise*")
+        
+        matches = st.radio(
+            "Does this match your clinical judgment?",
+            ["Yes - This routing is correct", "No - I would route differently", "Uncertain - Complex case"],
+            key="feedback_radio"
+        )
+        
+        if matches != "Yes - This routing is correct":
+            correct_clinic = st.selectbox(
+                "Where would you route this patient?",
+                ["DBP", "CAN", "PPC", "Needs dual assessment", "Needs triage call"],
+                key="correct_clinic"
             )
             
-            if matches != "Yes - This routing is correct":
-                correct_clinic = st.selectbox(
-                    "Where would you route this patient?",
-                    ["DBP", "CAN", "PPC", "Needs dual assessment", "Needs triage call"],
-                    key="correct_clinic"
-                )
-                
-                explanation = st.text_area(
-                    "What clinical factors influenced your decision?",
-                    placeholder="This helps us understand the nuances...",
-                    key="explanation"
-                )
-                
-                if st.button("💾 Save Feedback", use_container_width=True):
-                    feedback = result.copy()
-                    feedback['clinician_judgment'] = correct_clinic
-                    feedback['clinician_reasoning'] = explanation
-                    feedback['match_type'] = matches
-                    st.session_state.feedback_data.append(feedback)
-                    st.success("✅ Feedback saved! This data is gold for understanding edge cases.")
-            else:
-                if st.button("💾 Confirm Match", use_container_width=True):
-                    feedback = result.copy()
-                    feedback['clinician_judgment'] = result['clinic']
-                    feedback['match_type'] = "Match"
-                    st.session_state.feedback_data.append(feedback)
-                    st.success("✅ Match confirmed!")
+            explanation = st.text_area(
+                "What clinical factors influenced your decision?",
+                placeholder="This helps us understand the nuances...",
+                key="explanation"
+            )
+            
+            if st.button("💾 Save Feedback", use_container_width=True):
+                feedback = result.copy()
+                feedback['clinician_judgment'] = correct_clinic
+                feedback['clinician_reasoning'] = explanation
+                feedback['match_type'] = matches
+                st.session_state.feedback_data.append(feedback)
+                st.success("✅ Feedback saved! This data is gold for understanding edge cases.")
+        else:
+            if st.button("💾 Confirm Match", use_container_width=True):
+                feedback = result.copy()
+                feedback['clinician_judgment'] = result['clinic']
+                feedback['match_type'] = "Match"
+                st.session_state.feedback_data.append(feedback)
+                st.success("✅ Match confirmed!")
 
 # MODE 2: Edge Case Explorer
 elif st.session_state.current_mode == "Edge Case Explorer":
