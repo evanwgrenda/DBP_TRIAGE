@@ -702,7 +702,7 @@ if st.session_state.current_mode == "Test the Logic":
     
     st.markdown("---")
     
-    # Section-based button interface
+    # Section-based button interface with two-column layout
     sections_data = {
         "neuro_history": {
             "title": "🧠 Neurologic History",
@@ -756,37 +756,27 @@ if st.session_state.current_mode == "Test the Logic":
         }
     }
     
-    # Custom CSS removed - now in main app CSS section
+    # Define section groups for two-column layout
+    section_groups = [
+        ["neuro_history", "genetic_neurocutaneous"],  # Row 1: Two columns
+        ["mental_health_history", "development_education_supports"],  # Row 2: Two columns
+        ["current_services"]  # Row 3: Full width
+    ]
     
-    # Render each section with toggle buttons
-    for section_id, section_data in sections_data.items():
-        st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
-        
-        # Create columns for buttons (2 per row for all items)
-        items = section_data["items"]
-        for i in range(0, len(items), 2):
-            cols = st.columns(2)
+    # Render sections in groups
+    for group in section_groups:
+        if len(group) == 2:
+            # Two-column layout
+            col_left, col_right = st.columns(2)
             
-            # First button in the row
-            item_id, item_label = items[i]
-            with cols[0]:
-                is_selected = item_id in st.session_state.selected_items
-                if st.button(
-                    item_label,
-                    key=f"btn_{item_id}",
-                    use_container_width=True,
-                    type="primary" if is_selected else "secondary"
-                ):
-                    if is_selected:
-                        st.session_state.selected_items.remove(item_id)
-                    else:
-                        st.session_state.selected_items.add(item_id)
-                    st.rerun()
-            
-            # Second button in the row (if exists)
-            if i + 1 < len(items):
-                item_id, item_label = items[i + 1]
-                with cols[1]:
+            # Left column section
+            with col_left:
+                section_id = group[0]
+                section_data = sections_data[section_id]
+                st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
+                
+                # Render buttons in this section (single column within the left column)
+                for item_id, item_label in section_data["items"]:
                     is_selected = item_id in st.session_state.selected_items
                     if st.button(
                         item_label,
@@ -799,6 +789,71 @@ if st.session_state.current_mode == "Test the Logic":
                         else:
                             st.session_state.selected_items.add(item_id)
                         st.rerun()
+            
+            # Right column section
+            with col_right:
+                section_id = group[1]
+                section_data = sections_data[section_id]
+                st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
+                
+                # Render buttons in this section (single column within the right column)
+                for item_id, item_label in section_data["items"]:
+                    is_selected = item_id in st.session_state.selected_items
+                    if st.button(
+                        item_label,
+                        key=f"btn_{item_id}",
+                        use_container_width=True,
+                        type="primary" if is_selected else "secondary"
+                    ):
+                        if is_selected:
+                            st.session_state.selected_items.remove(item_id)
+                        else:
+                            st.session_state.selected_items.add(item_id)
+                        st.rerun()
+        
+        else:
+            # Full width section
+            section_id = group[0]
+            section_data = sections_data[section_id]
+            st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
+            
+            # Render buttons in this section in 2-column grid
+            items = section_data["items"]
+            for i in range(0, len(items), 2):
+                cols = st.columns(2)
+                
+                # First button in the row
+                item_id, item_label = items[i]
+                with cols[0]:
+                    is_selected = item_id in st.session_state.selected_items
+                    if st.button(
+                        item_label,
+                        key=f"btn_{item_id}",
+                        use_container_width=True,
+                        type="primary" if is_selected else "secondary"
+                    ):
+                        if is_selected:
+                            st.session_state.selected_items.remove(item_id)
+                        else:
+                            st.session_state.selected_items.add(item_id)
+                        st.rerun()
+                
+                # Second button in the row (if exists)
+                if i + 1 < len(items):
+                    item_id, item_label = items[i + 1]
+                    with cols[1]:
+                        is_selected = item_id in st.session_state.selected_items
+                        if st.button(
+                            item_label,
+                            key=f"btn_{item_id}",
+                            use_container_width=True,
+                            type="primary" if is_selected else "secondary"
+                        ):
+                            if is_selected:
+                                st.session_state.selected_items.remove(item_id)
+                            else:
+                                st.session_state.selected_items.add(item_id)
+                            st.rerun()
     
     # Parent-Identified Concerns Section (Text Area)
     st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, #2774AE22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid #2774AE;">👨‍👩‍👧‍👦 Parent-Identified Concerns</div>', unsafe_allow_html=True)
