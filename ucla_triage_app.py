@@ -5,7 +5,7 @@ import json
 
 # Page config
 st.set_page_config(
-    page_title="UCLA Neuro Clinic Routing Prototype",
+    page_title="UCLA AI Triage Prototype",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -605,7 +605,7 @@ def route_patient(age, primary_concern, comorbidities):
             return "DBP", "Low", reasoning
 
 # Header
-st.markdown('<div class="main-header">🏥 UCLA Neuro Clinic Routing Prototype</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🏥 UCLA AI Triage Prototype</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Building the Next Generation Integrated Clinic • DBP • CAN • PPC</div>', unsafe_allow_html=True)
 
 # Mode selector
