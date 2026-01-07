@@ -89,6 +89,17 @@ st.markdown("""
         padding: 12px 15px;
         border-radius: 8px;
     }
+    /* Checkbox styling */
+    div[data-testid="stCheckbox"] {
+        padding: 8px 0;
+    }
+    div[data-testid="stCheckbox"] label {
+        font-size: 15px;
+        color: #333;
+    }
+    div[data-testid="stCheckbox"] label:hover {
+        color: #2774AE;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -775,20 +786,19 @@ if st.session_state.current_mode == "Test the Logic":
                 section_data = sections_data[section_id]
                 st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
                 
-                # Render buttons in this section (single column within the left column)
+                # Render checkboxes in this section
                 for item_id, item_label in section_data["items"]:
                     is_selected = item_id in st.session_state.selected_items
-                    if st.button(
+                    if st.checkbox(
                         item_label,
-                        key=f"btn_{item_id}",
-                        use_container_width=True,
-                        type="primary" if is_selected else "secondary"
+                        value=is_selected,
+                        key=f"chk_{item_id}"
                     ):
-                        if is_selected:
-                            st.session_state.selected_items.remove(item_id)
-                        else:
+                        if item_id not in st.session_state.selected_items:
                             st.session_state.selected_items.add(item_id)
-                        st.rerun()
+                    else:
+                        if item_id in st.session_state.selected_items:
+                            st.session_state.selected_items.remove(item_id)
             
             # Right column section
             with col_right:
@@ -796,20 +806,19 @@ if st.session_state.current_mode == "Test the Logic":
                 section_data = sections_data[section_id]
                 st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
                 
-                # Render buttons in this section (single column within the right column)
+                # Render checkboxes in this section
                 for item_id, item_label in section_data["items"]:
                     is_selected = item_id in st.session_state.selected_items
-                    if st.button(
+                    if st.checkbox(
                         item_label,
-                        key=f"btn_{item_id}",
-                        use_container_width=True,
-                        type="primary" if is_selected else "secondary"
+                        value=is_selected,
+                        key=f"chk_{item_id}"
                     ):
-                        if is_selected:
-                            st.session_state.selected_items.remove(item_id)
-                        else:
+                        if item_id not in st.session_state.selected_items:
                             st.session_state.selected_items.add(item_id)
-                        st.rerun()
+                    else:
+                        if item_id in st.session_state.selected_items:
+                            st.session_state.selected_items.remove(item_id)
         
         else:
             # Full width section
@@ -817,43 +826,41 @@ if st.session_state.current_mode == "Test the Logic":
             section_data = sections_data[section_id]
             st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
             
-            # Render buttons in this section in 2-column grid
+            # Render checkboxes in 2-column grid
             items = section_data["items"]
             for i in range(0, len(items), 2):
                 cols = st.columns(2)
                 
-                # First button in the row
+                # First checkbox in the row
                 item_id, item_label = items[i]
                 with cols[0]:
                     is_selected = item_id in st.session_state.selected_items
-                    if st.button(
+                    if st.checkbox(
                         item_label,
-                        key=f"btn_{item_id}",
-                        use_container_width=True,
-                        type="primary" if is_selected else "secondary"
+                        value=is_selected,
+                        key=f"chk_{item_id}"
                     ):
-                        if is_selected:
-                            st.session_state.selected_items.remove(item_id)
-                        else:
+                        if item_id not in st.session_state.selected_items:
                             st.session_state.selected_items.add(item_id)
-                        st.rerun()
+                    else:
+                        if item_id in st.session_state.selected_items:
+                            st.session_state.selected_items.remove(item_id)
                 
-                # Second button in the row (if exists)
+                # Second checkbox in the row (if exists)
                 if i + 1 < len(items):
                     item_id, item_label = items[i + 1]
                     with cols[1]:
                         is_selected = item_id in st.session_state.selected_items
-                        if st.button(
+                        if st.checkbox(
                             item_label,
-                            key=f"btn_{item_id}",
-                            use_container_width=True,
-                            type="primary" if is_selected else "secondary"
+                            value=is_selected,
+                            key=f"chk_{item_id}"
                         ):
-                            if is_selected:
-                                st.session_state.selected_items.remove(item_id)
-                            else:
+                            if item_id not in st.session_state.selected_items:
                                 st.session_state.selected_items.add(item_id)
-                            st.rerun()
+                        else:
+                            if item_id in st.session_state.selected_items:
+                                st.session_state.selected_items.remove(item_id)
     
     # Parent-Identified Concerns Section (Text Area)
     st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, #2774AE22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid #2774AE;">👨‍👩‍👧‍👦 Parent-Identified Concerns</div>', unsafe_allow_html=True)
