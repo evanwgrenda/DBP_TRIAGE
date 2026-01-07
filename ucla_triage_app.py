@@ -5,7 +5,7 @@ import json
 
 # Page config
 st.set_page_config(
-    page_title="UCLA DBP Triage Prototype",
+    page_title="UCLA Triage Prototype",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -98,75 +98,268 @@ CLINICS = {
 
 def route_patient(age, primary_concern, comorbidities):
     """
-    Core routing logic - intentionally simple to expose edge cases
+    Clinical triage logic: DBP vs Neurology vs Psychiatry
+    Based on UCLA's structured triage system prioritizing safety, early intervention, and appropriate specialty scope
     Returns: (clinic, confidence, reasoning)
     """
     reasoning = []
     confidence = "High"
     
-    # Age-based initial routing
-    if age < 5:
-        reasoning.append(f"Patient age {age} suggests early developmental focus")
-        if "Seizures/Epilepsy" in comorbidities:
-            confidence = "Medium"
-            reasoning.append("⚠️ Young child with seizures - may need dual DBP/CAN assessment")
-            return "CAN", confidence, reasoning
-        return "DBP", "High", reasoning
+    # Helper function to check for specific concerns
+    def has_concern(concern_list, check_list):
+        return any(concern in comorbidities or concern in [primary_concern] for concern in check_list)
     
-    # Primary concern routing
-    if primary_concern == "Autism Spectrum":
-        if age > 10 and any(mood in comorbidities for mood in ["Depression", "Anxiety", "Suicidal Ideation"]):
-            confidence = "Medium"
-            reasoning.append("⚠️ Older child with autism AND significant mood concerns")
-            reasoning.append("May need PPC for psychiatric symptoms, DBP for autism management")
-            return "PPC", confidence, reasoning
-        reasoning.append("Autism spectrum concerns route to DBP")
-        return "DBP", "High", reasoning
+    # STEP 2: SAFETY SCREEN (OVERRIDES ALL AGE-BASED ROUTING)
+    safety_concerns = ["Suicidal Ideation", "Suicide Attempt", "Acute Psychiatric Crisis"]
+    if has_concern(comorbidities, safety_concerns):
+        reasoning.append("🚨 SAFETY PRIORITY: Acute psychiatric safety concern detected")
+        reasoning.append("Immediate referral to Child & Adolescent Psychiatry required")
+        reasoning.append("DBP is not appropriate as first-line care for acute safety concerns")
+        return "PPC", "High", reasoning
     
-    if primary_concern == "ADHD Only":
-        if age < 8:
-            reasoning.append("Younger child with ADHD - developmental lens preferred")
-            return "DBP", "High", reasoning
-        if "School Refusal" in comorbidities or "Anxiety" in comorbidities:
-            reasoning.append("ADHD with behavioral/anxiety components suggests psychiatric evaluation")
-            return "PPC", "High", reasoning
-        reasoning.append("Straightforward ADHD in school-age child")
-        return "DBP", "High", reasoning
-    
-    if primary_concern in ["Depression/Mood Disorder", "Anxiety Disorder"]:
-        if age < 10:
+    # STEP 3: NEUROLOGIC DISEASE SCREEN (OVERRIDES AGE FOR SPECIFIC CONDITIONS)
+    neurologic_conditions = [
+        "Uncontrolled Seizures", "Epilepsy", "Serious Head Injury", 
+        "Tuberous Sclerosis", "Cerebral Palsy", "Abnormal Neurogenetic Testing",
+        "Frequent Headaches/Migraines"
+    ]
+    if has_concern(comorbidities, neurologic_conditions):
+        reasoning.append("🧠 NEUROLOGIC CONDITION: Primary neurologic disease detected")
+        reasoning.append("Refer to Pediatric Neurology first for neurologic evaluation")
+        
+        # Check if developmental concerns also present
+        developmental_concerns = [
+            "Developmental Delay", "Autism Spectrum", "IEP or 504 Plan",
+            "Regional Center Services"
+        ]
+        if has_concern(comorbidities, developmental_concerns):
+            reasoning.append("Note: Developmental/behavioral concerns also present")
+            reasoning.append("DBP may follow after neurologic evaluation for developmental impact")
             confidence = "Medium"
-            reasoning.append("⚠️ Young child with mood disorder - consider developmental factors")
-        reasoning.append("Primary mood/anxiety disorder routes to PPC")
-        return "PPC", "High" if age >= 10 else "Medium", reasoning
-    
-    if primary_concern == "Seizures/Epilepsy":
-        if "Autism Spectrum" in comorbidities or "Developmental Delay" in comorbidities:
-            confidence = "Medium"
-            reasoning.append("⚠️ Seizures with developmental concerns - complex case")
-            reasoning.append("CAN for neurological management, may need DBP consultation")
-        else:
-            reasoning.append("Primary seizure disorder routes to CAN")
+        
         return "CAN", confidence, reasoning
     
-    if primary_concern == "Tics/Movement Disorder":
-        if "ADHD" in comorbidities and age < 10:
-            confidence = "Medium"
-            reasoning.append("⚠️ Tics with ADHD - could be neurological or developmental")
-            return "CAN", confidence, reasoning
-        reasoning.append("Movement disorders route to CAN neurology")
-        return "CAN", "High", reasoning
+    # STEP 1: AGE-BASED PRIORITIZATION
     
-    if primary_concern == "Behavioral Problems":
-        if age >= 10:
-            reasoning.append("Behavioral problems in adolescent suggest psychiatric evaluation")
-            return "PPC", "High", reasoning
-        else:
-            reasoning.append("Behavioral problems in younger child - developmental assessment")
+    # AGE < 2 YEARS: DBP Fast-Track
+    if age < 2:
+        reasoning.append("👶 Age < 2 years: DBP Fast-Track Priority")
+        reasoning.append("Early intervention is critical for developmental and behavioral concerns")
+        
+        # Check for DBP-relevant concerns
+        developmental_concerns = [
+            "Developmental Delay", "Autism Concern", "Autism Concern (Need Evaluation)",
+            "Milestone Loss/Plateau", "Feeding Difficulties", "Sleep Difficulties", 
+            "Regulation Difficulties", "Regional Center Services", 
+            "Abnormal Developmental Screening", "Language Disorder"
+        ]
+        
+        if has_concern(comorbidities + [primary_concern], developmental_concerns):
+            reasoning.append("Developmental, behavioral, or regulatory concern present → DBP")
+            return "DBP", "High", reasoning
+        
+        # For very young children, default to DBP for almost any concern
+        if primary_concern not in ["Uncontrolled Seizures", "Epilepsy Follow-up (No Developmental Concerns)"]:
+            reasoning.append("Any developmental or behavioral concern in child <2 years → DBP")
             return "DBP", "High", reasoning
     
-    # Default fallback
-    return "DBP", "Low", ["⚠️ Unclear presentation - defaulting to DBP for initial assessment"]
+    # AGE 2-5 YEARS: DBP Preferred
+    elif age >= 2 and age < 6:
+        reasoning.append("🧒 Age 2-5 years: DBP Preferred for Developmental Concerns")
+        
+        # DBP-preferred conditions
+        dbp_conditions = [
+            "Autism Spectrum (Diagnosed)", "Autism Concern (Need Evaluation)", 
+            "Autism Evaluation Needed", "Developmental Delay / Milestone Concerns",
+            "Language Disorder", "ADHD vs Autism Diagnostic Question",
+            "Global Developmental Delay", "Multidomain Concerns"
+        ]
+        
+        if primary_concern in dbp_conditions or has_concern(comorbidities, [
+            "IEP or 504 Plan", "Early Childhood Special Education", "Multidomain Concerns"
+        ]):
+            reasoning.append("Complex developmental presentation requiring DBP evaluation")
+            return "DBP", "High", reasoning
+        
+        # Check for primary psychiatric condition requiring medication
+        if primary_concern in [
+            "Major Depressive Disorder", "Severe Anxiety Disorder",
+            "Mood Disorder Requiring Medication"
+        ]:
+            if not has_concern(comorbidities, ["Developmental Delay", "Autism Spectrum", "Learning Disability"]):
+                reasoning.append("Primary mood/anxiety disorder requiring medication management")
+                reasoning.append("No significant developmental concerns → Psychiatry appropriate")
+                return "PPC", "High", reasoning
+        
+        # Default to DBP for this age range
+        reasoning.append("Preschool age with behavioral/developmental concern → DBP preferred")
+        return "DBP", "High", reasoning
+    
+    # AGE ≥ 6 YEARS: Selective DBP Use
+    else:
+        reasoning.append(f"📚 Age {age:.0f} years: Selective DBP criteria apply")
+        
+        # STEP 4: PRIMARY PSYCHIATRIC CONDITION SCREEN
+        primary_psychiatric_concerns = [
+            "Bipolar Disorder", "Moderate to Severe OCD", "Major Depressive Disorder",
+            "Severe Anxiety Disorder", "Severe Anxiety or Panic Attacks"
+        ]
+        
+        if primary_concern in primary_psychiatric_concerns or has_concern(comorbidities, [
+            "Bipolar Disorder", "Psychiatric Hospitalization History"
+        ]):
+            reasoning.append("Primary psychiatric condition identified")
+            reasoning.append("Refer to Child & Adolescent Psychiatry")
+            
+            developmental_complexity = [
+                "IEP or 504 Plan", "Autism Spectrum", "ADHD", "Learning Disability"
+            ]
+            if has_concern(comorbidities, developmental_complexity):
+                reasoning.append("Note: Developmental concerns present - DBP may co-manage later")
+                confidence = "Medium"
+            
+            return "PPC", confidence, reasoning
+        
+        # STEP 5: DEVELOPMENTAL / SYSTEMS-BASED COMPLEXITY
+        # Check for DBP-appropriate complexity
+        if primary_concern == "Complex Neurodevelopmental Profile":
+            reasoning.append("✅ Complex neurodevelopmental profile identified")
+            reasoning.append("Multiple domains affected - DBP evaluation appropriate")
+            return "DBP", "High", reasoning
+        
+        if primary_concern == "Diagnostic Uncertainty Across Domains":
+            reasoning.append("✅ Diagnostic uncertainty across developmental domains")
+            reasoning.append("DBP evaluation needed for diagnostic clarification and integration")
+            return "DBP", "High", reasoning
+        
+        dbp_complexity_indicators = [
+            "IEP or 504 Plan",
+            "Regional Center Services",
+            "Receives Multiple Therapies (OT/PT/Speech/ABA)",
+            "School-System Complexity",
+            "Prior Neuro/Psych Care Insufficient",
+            "Autism Spectrum + ADHD + Learning Disability"
+        ]
+        
+        if has_concern(comorbidities, dbp_complexity_indicators):
+            reasoning.append("✅ DBP-Appropriate Complexity Identified:")
+            
+            complexity_factors = []
+            if "IEP or 504 Plan" in comorbidities:
+                complexity_factors.append("School system involvement (IEP/504)")
+            if has_concern(comorbidities, ["Autism Spectrum", "ADHD", "Learning Disability"]):
+                complexity_factors.append("Multiple neurodevelopmental domains")
+            if "Receives Multiple Therapies (OT/PT/Speech/ABA)" in comorbidities:
+                complexity_factors.append("Multiple therapy services")
+            if "Regional Center Services" in comorbidities:
+                complexity_factors.append("Regional Center services")
+            if "School-System Complexity" in comorbidities:
+                complexity_factors.append("School-system complexity requiring navigation")
+            
+            for factor in complexity_factors:
+                reasoning.append(f"  • {factor}")
+            
+            reasoning.append("Concerns span multiple domains requiring diagnostic integration")
+            reasoning.append("DBP appropriate for systems-based complexity and school navigation")
+            return "DBP", "High", reasoning
+        
+        # DBP GUARDRAILS (Age ≥ 6) - DO NOT refer to DBP for these
+        if primary_concern in [
+            "Isolated Depression (No Developmental Concerns)",
+            "Isolated Anxiety (No Developmental Concerns)",
+            "Isolated OCD"
+        ]:
+            reasoning.append("❌ DBP Guardrail: Isolated psychiatric concern without developmental complexity")
+            reasoning.append("This does not meet DBP criteria for older children")
+            reasoning.append("→ Refer to Child & Adolescent Psychiatry")
+            return "PPC", "High", reasoning
+        
+        if primary_concern in [
+            "Straightforward Migraine Management",
+            "Epilepsy Follow-up (No Developmental Concerns)"
+        ]:
+            reasoning.append("❌ DBP Guardrail: Isolated neurologic concern without developmental complexity")
+            reasoning.append("This does not meet DBP criteria")
+            reasoning.append("→ Refer to Pediatric Neurology")
+            return "CAN", "High", reasoning
+        
+        if primary_concern == "Medication Refills Only":
+            reasoning.append("❌ DBP Guardrail: Medication management without diagnostic complexity")
+            reasoning.append("This does not meet DBP criteria")
+            reasoning.append("→ Coordinate with primary care or existing specialist")
+            return "PPC", "Medium", reasoning
+        
+        # Check for autism/ADHD in older children
+        if primary_concern in ["Autism Spectrum (Diagnosed)", "Autism Concern (Need Evaluation)"]:
+            if has_concern(comorbidities, ["IEP or 504 Plan", "School-System Complexity", "Learning Disability"]):
+                reasoning.append("Autism with school/learning complexity → DBP appropriate")
+                return "DBP", "High", reasoning
+            else:
+                reasoning.append("Autism in older child without clear complexity indicators")
+                reasoning.append("Consider if diagnostic integration truly needed")
+                confidence = "Medium"
+                return "DBP", confidence, reasoning
+        
+        # Check for straightforward ADHD
+        if primary_concern == "ADHD (Straightforward)":
+            if not has_concern(comorbidities, ["Autism Spectrum", "Learning Disability", "IEP or 504 Plan"]):
+                reasoning.append("Straightforward ADHD in school-age child")
+                reasoning.append("Can be managed by Psychiatry or primary care")
+                reasoning.append("DBP referral not necessary without complicating factors")
+                return "PPC", "High", reasoning
+            else:
+                reasoning.append("ADHD with developmental/learning complexity → DBP appropriate")
+                return "DBP", "High", reasoning
+        
+        # Check for diagnostic complexity
+        if primary_concern == "ADHD vs Autism Diagnostic Question":
+            reasoning.append("Diagnostic complexity requiring differentiation")
+            reasoning.append("DBP evaluation needed for diagnostic clarification")
+            return "DBP", "High", reasoning
+        
+        # Developmental delay in older children
+        if primary_concern == "Developmental Delay / Milestone Concerns":
+            reasoning.append("Developmental concerns in school-age child")
+            if has_concern(comorbidities, ["IEP or 504 Plan"]):
+                reasoning.append("School services involved → DBP appropriate")
+                return "DBP", "High", reasoning
+            else:
+                reasoning.append("Consider if multidomain complexity present")
+                return "DBP", "Medium", reasoning
+        
+        # Learning disability
+        if primary_concern == "Learning Disability":
+            if has_concern(comorbidities, ["ADHD", "Autism Spectrum", "IEP or 504 Plan"]):
+                reasoning.append("Learning disability with neurodevelopmental complexity")
+                return "DBP", "High", reasoning
+            else:
+                reasoning.append("⚠️ Isolated learning disability may not require DBP")
+                reasoning.append("Consider neuropsychological evaluation or school-based support")
+                return "DBP", "Medium", reasoning
+        
+        # Neurologic conditions in older children
+        if primary_concern in ["Uncontrolled Seizures", "Frequent Headaches/Migraines"]:
+            reasoning.append("Primary neurologic concern → Neurology")
+            if has_concern(comorbidities, ["Developmental Delay", "Autism Spectrum"]):
+                reasoning.append("Note: Developmental concerns present - DBP may be needed later")
+                confidence = "Medium"
+            return "CAN", confidence, reasoning
+        
+        # Default for older children without clear complexity
+        reasoning.append("⚠️ Older child: Evaluate if DBP complexity criteria are met")
+        reasoning.append("Consider whether developmental integration is truly needed")
+        confidence = "Medium"
+        
+        # Make educated guess based on what's present
+        if has_concern(comorbidities, ["ADHD", "Autism Spectrum", "Developmental Delay"]):
+            reasoning.append("Neurodevelopmental concerns present → DBP may be appropriate")
+            return "DBP", confidence, reasoning
+        elif has_concern(comorbidities + [primary_concern], ["Depression", "Anxiety", "Bipolar"]):
+            reasoning.append("Psychiatric concerns predominate → Psychiatry likely appropriate")
+            return "PPC", confidence, reasoning
+        else:
+            reasoning.append("Unclear presentation - recommend clinical triage discussion")
+            return "DBP", "Low", reasoning
 
 # Header
 st.markdown('<div class="main-header">🏥 UCLA Neuro Clinic Routing Prototype</div>', unsafe_allow_html=True)
@@ -199,19 +392,39 @@ if st.session_state.current_mode == "Test the Logic":
     with col1:
         st.markdown("### Patient Information")
         
-        age = st.slider("Patient Age", 2, 18, 8)
+        age_years = st.slider("Patient Age (years)", 0, 18, 8)
+        
+        if age_years < 2:
+            age_months = st.slider("Age in Months", 0, 23, age_years * 12)
+            age = age_months / 12.0
+            st.caption(f"Total age: {age_months} months ({age:.1f} years)")
+        else:
+            age = age_years
         
         primary_concern = st.selectbox(
             "Primary Presenting Concern",
             [
-                "Autism Spectrum",
-                "ADHD Only",
-                "Depression/Mood Disorder",
-                "Anxiety Disorder",
-                "Seizures/Epilepsy",
-                "Tics/Movement Disorder",
-                "Behavioral Problems",
-                "Developmental Delay"
+                "Autism Concern (Need Evaluation)",
+                "Autism Spectrum (Diagnosed)",
+                "ADHD (Straightforward)",
+                "ADHD vs Autism Diagnostic Question",
+                "Developmental Delay / Milestone Concerns",
+                "Language Disorder",
+                "Learning Disability",
+                "Major Depressive Disorder",
+                "Severe Anxiety Disorder",
+                "Bipolar Disorder",
+                "Moderate to Severe OCD",
+                "Isolated Depression (No Developmental Concerns)",
+                "Isolated Anxiety (No Developmental Concerns)",
+                "Isolated OCD",
+                "Uncontrolled Seizures",
+                "Epilepsy Follow-up (No Developmental Concerns)",
+                "Frequent Headaches/Migraines",
+                "Straightforward Migraine Management",
+                "Complex Neurodevelopmental Profile",
+                "Diagnostic Uncertainty Across Domains",
+                "Medication Refills Only"
             ]
         )
         
@@ -219,16 +432,52 @@ if st.session_state.current_mode == "Test the Logic":
         comorbidities = st.multiselect(
             "Select all that apply:",
             [
+                # Safety Concerns
+                "Suicidal Ideation",
+                "Suicide Attempt",
+                "Acute Psychiatric Crisis",
+                
+                # Neurologic Conditions
+                "Uncontrolled Seizures",
+                "Epilepsy",
+                "Serious Head Injury",
+                "Tuberous Sclerosis",
+                "Cerebral Palsy",
+                "Abnormal Neurogenetic Testing",
+                "Frequent Headaches/Migraines",
+                
+                # Developmental/Neurodevelopmental
                 "Autism Spectrum",
                 "ADHD",
+                "Developmental Delay",
+                "Learning Disability",
+                "Language Disorder",
+                "Milestone Loss/Plateau",
+                "Abnormal Developmental Screening",
+                
+                # Psychiatric
                 "Depression",
                 "Anxiety",
-                "Suicidal Ideation",
-                "Seizures/Epilepsy",
-                "Developmental Delay",
-                "School Refusal",
-                "Sleep Problems",
-                "Eating Problems"
+                "Bipolar Disorder",
+                "Moderate to Severe OCD",
+                "Severe Anxiety or Panic Attacks",
+                "Psychiatric Hospitalization History",
+                "Mood Disorder Requiring Medication",
+                
+                # Systems/Services
+                "IEP or 504 Plan",
+                "Early Childhood Special Education",
+                "Regional Center Services",
+                "Receives Multiple Therapies (OT/PT/Speech/ABA)",
+                "School-System Complexity",
+                "Prior Neuro/Psych Care Insufficient",
+                
+                # Other Concerns
+                "Feeding Difficulties",
+                "Sleep Difficulties",
+                "Regulation Difficulties",
+                "Multidomain Concerns",
+                "Autism Spectrum + ADHD + Learning Disability"
             ]
         )
         
@@ -338,53 +587,121 @@ elif st.session_state.current_mode == "Edge Case Explorer":
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.markdown("### Current Routing Logic")
+        st.markdown("### Current Routing Logic: UCLA Pediatric Triage System")
         st.markdown("""
         ```
-        START: Patient Referral
-        │
-        ├─ Age < 5 years?
-        │   ├─ YES → Check for seizures
-        │   │   ├─ Seizures present → CAN (Medium confidence)
-        │   │   └─ No seizures → DBP (High confidence)
-        │   │
-        │   └─ NO → Continue to primary concern
-        │
-        ├─ Primary Concern: Autism
-        │   ├─ Age > 10 AND mood symptoms? → PPC (Medium confidence)
-        │   └─ Otherwise → DBP (High confidence)
-        │
-        ├─ Primary Concern: ADHD
-        │   ├─ Age < 8 → DBP (High confidence)
-        │   ├─ Age ≥ 8 + anxiety/behavioral → PPC (High confidence)
-        │   └─ Age ≥ 8, straightforward → DBP (High confidence)
-        │
-        ├─ Primary Concern: Mood/Anxiety
-        │   ├─ Age < 10 → PPC (Medium confidence - consider developmental)
-        │   └─ Age ≥ 10 → PPC (High confidence)
-        │
-        ├─ Primary Concern: Seizures/Epilepsy
-        │   ├─ + Developmental concerns → CAN (Medium confidence)
-        │   └─ No developmental concerns → CAN (High confidence)
-        │
-        ├─ Primary Concern: Tics/Movement
-        │   ├─ + ADHD, Age < 10 → CAN (Medium confidence)
-        │   └─ Otherwise → CAN (High confidence)
-        │
-        └─ Primary Concern: Behavioral Problems
-            ├─ Age ≥ 10 → PPC (High confidence)
-            └─ Age < 10 → DBP (High confidence)
+        ═══════════════════════════════════════════════════════════════
+        STRUCTURED PEDIATRIC TRIAGE: DBP vs NEUROLOGY vs PSYCHIATRY
+        ═══════════════════════════════════════════════════════════════
+        
+        STEP 2: SAFETY SCREEN (Overrides All Age-Based Routing)
+        ────────────────────────────────────────────────────────────
+        → Suicidal ideation/attempt → PSYCHIATRY (Immediate)
+        → Acute psychiatric crisis → PSYCHIATRY (Immediate)
+        
+        
+        STEP 3: NEUROLOGIC DISEASE SCREEN (Overrides Age)
+        ────────────────────────────────────────────────────────────
+        → Uncontrolled seizures → NEUROLOGY
+        → Serious head injury → NEUROLOGY
+        → Tuberous sclerosis → NEUROLOGY
+        → Cerebral palsy → NEUROLOGY
+        → Abnormal neurogenetic testing → NEUROLOGY
+        → Frequent headaches/migraines → NEUROLOGY
+        
+        (Note: DBP may follow for developmental/behavioral impact)
+        
+        
+        STEP 1: AGE-BASED PRIORITIZATION
+        ────────────────────────────────────────────────────────────
+        
+        AGE < 2 YEARS: DBP FAST-TRACK
+        ▸ Default to DBP for ANY developmental/behavioral concern:
+          • Developmental delay (any domain)
+          • Autism concern
+          • Milestone loss or plateau
+          • Feeding, sleep, or regulation difficulties
+          • Regional Center referral
+          • Abnormal developmental screening
+        
+        
+        AGE 2-5 YEARS: DBP PREFERRED
+        ▸ Refer to DBP for:
+          • Autism evaluation or diagnostic clarification
+          • Global developmental delay
+          • Language disorder
+          • ADHD vs autism vs anxiety diagnostic question
+          • Has IEP or early childhood special education
+          • Multidomain concerns across home and school
+        
+        ▸ Psychiatry preferred ONLY if:
+          • Primary mood/anxiety requiring medication
+          • No significant developmental concerns
+        
+        
+        AGE ≥ 6 YEARS: SELECTIVE DBP USE
+        ▸ Refer to DBP ONLY if:
+          • Complex neurodevelopmental profile
+            (e.g., ASD + ADHD + learning disability)
+          • Diagnostic uncertainty across domains
+          • School-system complexity (IEP/504 + behavioral)
+          • Prior Neuro/Psych care insufficient
+          • Integration across specialties required
+        
+        
+        STEP 4: PRIMARY PSYCHIATRIC CONDITION SCREEN (Age ≥ 6)
+        ────────────────────────────────────────────────────────────
+        → Bipolar disorder → PSYCHIATRY
+        → Moderate to severe OCD → PSYCHIATRY
+        → Major depressive disorder → PSYCHIATRY
+        → Severe anxiety/panic attacks → PSYCHIATRY
+        → Psychiatric hospitalization history → PSYCHIATRY
+        
+        (Note: DBP may co-manage later for developmental/school issues)
+        
+        
+        STEP 5: DEVELOPMENTAL/SYSTEMS COMPLEXITY (Age ≥ 6)
+        ────────────────────────────────────────────────────────────
+        Refer to DBP when concerns span multiple domains:
+        ▸ Has IEP or 504 Plan
+        ▸ Regional Center services
+        ▸ Receives OT, PT, speech, ABA, or counseling
+        ▸ Family needs diagnostic integration + school navigation
+        ▸ No acute neuro/psych condition explains full presentation
+        
+        
+        DBP GUARDRAILS (Age ≥ 6) - DO NOT REFER TO DBP:
+        ────────────────────────────────────────────────────────────
+        ✗ Isolated depression, anxiety, or OCD
+        ✗ Bipolar disorder
+        ✗ Active suicidal ideation
+        ✗ Straightforward migraine management
+        ✗ Epilepsy follow-up without developmental concerns
+        ✗ Medication refills without diagnostic complexity
+        
+        ═══════════════════════════════════════════════════════════════
         ```
         """)
         
-        st.markdown("### Known Limitations")
-        st.warning("""
-        **Where this logic fails:**
-        - Dual diagnoses (e.g., autism + new onset psychosis)
-        - Medical complexity (e.g., genetic syndromes)
-        - Family preference/history with specific clinics
-        - Insurance/access constraints
-        - Cases requiring immediate crisis intervention
+        st.markdown("### Core Principles")
+        st.info("""
+        **Prioritization:**
+        1. **Safety first**: Acute psychiatric crises override all other routing
+        2. **Early intervention**: Children <2 years default to DBP for developmental concerns
+        3. **Appropriate scope**: Route to the specialty best suited for the primary concern
+        4. **Preserve DBP access**: For older children, reserve DBP for complex, multidomain cases
+        
+        **DBP is most appropriate when:**
+        - Multiple developmental domains affected
+        - Diagnostic uncertainty across areas
+        - School system complexity requires navigation
+        - Integration across specialties needed
+        
+        **DBP is NOT appropriate for:**
+        - Isolated psychiatric conditions
+        - Straightforward neurologic disease
+        - Medication management only
+        - Single-domain concerns in older children
         """)
     
     with col2:
