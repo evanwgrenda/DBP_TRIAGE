@@ -762,10 +762,14 @@ if st.session_state.current_mode == "Test the Logic":
     for section_id, section_data in sections_data.items():
         st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
         
-        # Create columns for buttons (2 per row)
-        cols = st.columns(2)
-        for idx, (item_id, item_label) in enumerate(section_data["items"]):
-            with cols[idx % 2]:
+        # Create columns for buttons (2 per row for all items)
+        items = section_data["items"]
+        for i in range(0, len(items), 2):
+            cols = st.columns(2)
+            
+            # First button in the row
+            item_id, item_label = items[i]
+            with cols[0]:
                 is_selected = item_id in st.session_state.selected_items
                 if st.button(
                     item_label,
@@ -778,6 +782,23 @@ if st.session_state.current_mode == "Test the Logic":
                     else:
                         st.session_state.selected_items.add(item_id)
                     st.rerun()
+            
+            # Second button in the row (if exists)
+            if i + 1 < len(items):
+                item_id, item_label = items[i + 1]
+                with cols[1]:
+                    is_selected = item_id in st.session_state.selected_items
+                    if st.button(
+                        item_label,
+                        key=f"btn_{item_id}",
+                        use_container_width=True,
+                        type="primary" if is_selected else "secondary"
+                    ):
+                        if is_selected:
+                            st.session_state.selected_items.remove(item_id)
+                        else:
+                            st.session_state.selected_items.add(item_id)
+                        st.rerun()
     
     # Parent-Identified Concerns Section (Text Area)
     st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, #2774AE22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid #2774AE;">👨‍👩‍👧‍👦 Parent-Identified Concerns</div>', unsafe_allow_html=True)
