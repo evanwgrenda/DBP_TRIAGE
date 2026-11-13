@@ -52,14 +52,14 @@ This is a **research collaboration tool** that helps Dr. Jeste see her own clini
 
 **Start with a straightforward case:**
 - Age: 7
-- Check: *Has an Individualized Education Program (IEP)* and *Speech Therapy*
+- Check: *Individualized Education Program (IEP)* and *Speech Therapy*
 - **Expected result:** Routes to DBP with High confidence
 
 **"This one's easy, right? Let's try something messier..."**
 
 **Try a mixed case:**
 - Age: 4
-- Check: *Seizures, convulsions, or staring spells* and *ABA Therapy*
+- Check: *Tuberous Sclerosis Complex* and *ABA Therapy*
 - **Expected result:** Routes to CAN (Medium confidence). Neurology comes first, and DBP may follow.
 
 **Then a safety case:**
@@ -67,7 +67,7 @@ This is a **research collaboration tool** that helps Dr. Jeste see her own clini
 - Check: *Autism Spectrum Disorder* and *Suicidal ideation or suicide attempt*
 - **Expected result:** Routes to PPC (High confidence), because the safety screen overrides everything else.
 
-> Note: the Neurodevelopmental Diagnoses (ASD, ADHD, syndromes, etc.) and the "What is the family hoping to get from this visit?" checkboxes are recorded for research but don't drive routing yet. For example, "ADHD only" routes to DBP at Medium confidence.
+> Note: the neurodevelopmental conditions (ASD, ADHD, SLD), Rett, Down syndrome, the family-goal checkboxes and the prior-specialist question are recorded for research but don't drive routing yet. The neurogenetic syndromes do route to Neurology. For example, "ADHD only" routes to DBP at Medium confidence.
 
 **"Now here's where I need your expertise - does this match how you'd route this patient?"**
 

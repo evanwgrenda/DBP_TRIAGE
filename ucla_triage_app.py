@@ -141,16 +141,10 @@ CLINICS = {
 
 # Mapping of button IDs to clinical flags
 ITEM_FLAGS = {
-    # Neurologic History
-    "hx_serious_head_injury": ["neuro_flag"],
-    "hx_seizures_convulsions_staring_spells": ["neuro_flag", "high_acuity_flag"],
-    "hx_frequent_headaches_migraines": ["neuro_flag"],
-    "hx_cerebral_palsy": ["neuro_flag", "high_acuity_flag"],
-    
-    # Neurodevelopmental Diagnoses section (formerly Genetic / Neurocutaneous)
+    # Neurogenetic conditions
+    # Route to Neurology (CAN)
     "hx_tuberous_sclerosis": ["neuro_flag", "high_acuity_flag"],
-    
-    # Neurogenetic syndromes that route to Neurology (CAN)
+    # Route to Neurology (CAN); + Psychiatry (PPC) if a psychiatric concern is also present
     "dx_angelman": ["neuro_flag", "neurogenetic_flag"],
     "dx_asxl": ["neuro_flag", "neurogenetic_flag"],
     "dx_cdkl5": ["neuro_flag", "neurogenetic_flag"],
@@ -158,15 +152,21 @@ ITEM_FLAGS = {
     "dx_hnrnph2": ["neuro_flag", "neurogenetic_flag"],
     "dx_kabuki": ["neuro_flag", "neurogenetic_flag"],
     "dx_prader_willi": ["neuro_flag", "neurogenetic_flag"],
+    # Recorded only, no routing flags yet
+    "dx_rett": [],
+    "dx_down": [],
 
-    # Neurodevelopmental diagnoses: recorded only, no routing flags yet.
-    # To wire into decision logic later, add flags (e.g., ["neuro_flag"]).
-    "hx_tics": [],
+    # Neurologic conditions: route to Neurology (CAN)
+    "hx_frequent_headaches_migraines": ["neuro_flag"],
+    "hx_seizures_epilepsy": ["neuro_flag", "high_acuity_flag"],
+    "hx_cerebral_palsy": ["neuro_flag", "high_acuity_flag"],
+    "hx_tics": [],  # recorded only, no routing flags yet
+
+    # Neurodevelopmental conditions: recorded only, no routing flags yet.
+    # To wire into decision logic later, add flags (e.g., ["dbp_flag"]).
     "dx_adhd": [],
     "dx_autism": [],
     "dx_specific_learning_disability": [],
-    "dx_rett": [],
-    "dx_down": [],
 
     # Mental Health History
     "hx_bipolar": ["psych_flag", "high_acuity_flag"],
@@ -176,9 +176,15 @@ ITEM_FLAGS = {
     "hx_suicidal_ideation_or_attempt": ["psych_flag", "high_acuity_flag", "safety_flag"],
     
     # Development & Education
-    "referred_regional_center": ["dbp_flag"],
     "has_iep": ["dbp_flag"],
     "has_504": ["dbp_flag"],
+    # Recorded only, no routing flags yet
+    "edu_special_education": [],
+    "edu_one_on_one_aide": [],
+    "edu_fba": [],
+    "edu_bip": [],
+    "edu_school_counseling": [],
+    "edu_emotional_regulation": [],
     
     # Current Services
     "receives_occupational_therapy": ["dbp_flag"],
@@ -186,25 +192,31 @@ ITEM_FLAGS = {
     "receives_speech_therapy": ["dbp_flag"],
     "receives_social_skills_training": ["dbp_flag"],
     "receives_cbt_therapy": ["dbp_flag"],
-    "receives_physical_therapy": ["dbp_flag"]
+    "receives_physical_therapy": ["dbp_flag"],
+    # Recorded only, no routing flags yet
+    "receives_respite_care": [],
+    "receives_self_determination_program": []
 }
 
 # Parent-identified goals: what the family is hoping to get from the visit.
 # Recorded for research only; they do NOT affect routing yet.
-PARENT_GOALS = [
-    ("goal_academic_testing", "Academic testing"),
-    ("goal_accurate_diagnosis", "Accurate diagnosis"),
-    ("goal_autism_testing", "Autism testing"),
-    ("goal_comprehensive_care", "Comprehensive care"),
-    ("goal_genetic_testing", "Genetic testing"),
+PARENT_GOALS = [  # shown in this order (not alphabetized)
+    ("goal_testing_autism", "Autism testing"),
+    ("goal_testing_neuropsychiatric", "Comprehensive neuropsychiatric testing"),
+    ("goal_testing_academic", "Academic testing"),
+    ("goal_testing_genetic", "Genetic testing"),
+    ("goal_brain_imaging", "Brain imaging (MRI/EEG)"),
     ("goal_medication_management", "Medication management"),
-    ("goal_neuropsychiatric_testing", "Neuropsychiatric testing"),
+    ("goal_therapy_counseling", "Therapy or counseling"),
+    ("goal_access_to_services", "Access to services (ABA, OT, speech, Regional Center)"),
+    ("goal_school_support", "School support or IEP/504 advocacy"),
     ("goal_research_involvement", "Research involvement"),
+    ("goal_second_opinion", "Second opinion on an existing diagnosis"),
 ]
 
 # Routing flags for each parent goal. Empty = no effect on routing.
 # To wire a goal into the decision logic later, add flags here
-# (e.g., "goal_autism_testing": ["dbp_flag"]) and pass parent_goals
+# (e.g., "goal_testing_autism": ["dbp_flag"]) and pass parent_goals
 # into route_patient_new.
 PARENT_GOAL_FLAGS = {goal_id: [] for goal_id, _ in PARENT_GOALS}
 PARENT_GOAL_LABELS = dict(PARENT_GOALS)
@@ -212,31 +224,42 @@ PARENT_GOAL_LABELS = dict(PARENT_GOALS)
 # Checkbox sections shown in the Routing Simulator
 SECTIONS = {
     "neurodevelopmental_diagnoses": {
-        "title": "🧠 Neurodevelopmental Diagnoses",
+        "title": "🧠 Has your child been diagnosed with one of the following neurodevelopmental conditions?",
+        "color": "#2774AE",
+        "items": [
+            ("dx_adhd", "Attention-Deficit/Hyperactivity Disorder"),
+            ("dx_autism", "Autism Spectrum Disorder"),
+            ("dx_specific_learning_disability", "Specific Learning Disability")
+        ]
+    },
+    "neurogenetic_conditions": {
+        "title": "🧬 Has your child been diagnosed with one of the following neurogenetic conditions?",
         "color": "#2774AE",
         "items": [
             ("dx_angelman", "Angelman Syndrome"),
             ("dx_asxl", "ASXL-Related Disorders"),
-            ("dx_adhd", "Attention-Deficit/Hyperactivity Disorder"),
-            ("dx_autism", "Autism Spectrum Disorder"),
             ("dx_cdkl5", "CDKL5"),
-            ("hx_cerebral_palsy", "Cerebral palsy"),
             ("dx_down", "Down Syndrome"),
             ("dx_dup15q", "Dup15q Syndrome"),
-            ("hx_frequent_headaches_migraines", "Frequent headaches or migraines"),
             ("dx_hnrnph2", "HNRNPH2"),
             ("dx_kabuki", "Kabuki Syndrome"),
             ("dx_prader_willi", "Prader-Willi Syndrome"),
             ("dx_rett", "Rett Syndrome"),
-            ("hx_seizures_convulsions_staring_spells", "Seizures, convulsions, or staring spells"),
-            ("hx_serious_head_injury", "Serious head injury"),
-            ("dx_specific_learning_disability", "Specific Learning Disability"),
-            ("hx_tics", "Tics"),
             ("hx_tuberous_sclerosis", "Tuberous Sclerosis Complex")
         ]
     },
+    "neurologic_conditions": {
+        "title": "⚡ Has your child been diagnosed with one of the following neurologic conditions?",
+        "color": "#2774AE",
+        "items": [
+            ("hx_frequent_headaches_migraines", "Frequent headaches/migraines"),
+            ("hx_seizures_epilepsy", "Seizures/epilepsy"),
+            ("hx_cerebral_palsy", "Cerebral palsy"),
+            ("hx_tics", "Tics")  # 4th item = right column, directly under Seizures/epilepsy
+        ]
+    },
     "mental_health_history": {
-        "title": "💭 Mental Health History",
+        "title": "💭 Has your child been diagnosed with one of the following mental health conditions?",
         "color": "#2774AE",
         "items": [
             ("hx_anxiety_panic", "Anxiety or panic attacks"),
@@ -247,22 +270,30 @@ SECTIONS = {
         ]
     },
     "development_education_supports": {
-        "title": "📚 Developmental & Educational Supports",
+        "title": "📚 Does your child receive any of the following educational supports?",
         "color": "#2774AE",
         "items": [
-            ("has_504", "Has a 504 Plan"),
-            ("has_iep", "Has an Individualized Education Program (IEP)"),
-            ("referred_regional_center", "Previously referred to Regional Center")
+            # shown in this order (not alphabetized)
+            ("has_iep", "Individualized Education Program (IEP)"),
+            ("has_504", "Section 504 Plan"),
+            ("edu_special_education", "Special education services"),
+            ("edu_one_on_one_aide", "One-on-one instructional aide or paraprofessional"),
+            ("edu_fba", "Functional Behavioral Assessment (FBA)"),
+            ("edu_bip", "Behavior Intervention Plan (BIP)"),
+            ("edu_school_counseling", "School counseling"),
+            ("edu_emotional_regulation", "Emotional regulation support")
         ]
     },
     "current_services": {
-        "title": "🏥 Current Services",
+        "title": "🏥 Does your child currently receive any of the following services?",
         "color": "#2774AE",
         "items": [
             ("receives_aba_therapy", "ABA Therapy"),
-            ("receives_cbt_therapy", "CBT Therapy"),
-            ("receives_occupational_therapy", "Occupational Therapy (OT)"),
+            ("receives_cbt_therapy", "Cognitive Behavioral Therapy"),
+            ("receives_occupational_therapy", "Occupational Therapy"),
             ("receives_physical_therapy", "Physical Therapy"),
+            ("receives_respite_care", "Respite Care"),
+            ("receives_self_determination_program", "Self-Determination Program"),
             ("receives_social_skills_training", "Social Skills Training"),
             ("receives_speech_therapy", "Speech Therapy")
         ]
@@ -275,6 +306,43 @@ ITEM_LABELS = {item_id: label for sec in SECTIONS.values() for item_id, label in
 def concern_label(item_id):
     """Readable label for a checkbox item ID."""
     return ITEM_LABELS.get(item_id, item_id.removeprefix("hx_").replace("_", " ").capitalize())
+
+# Options for specialists the child has already seen
+SPECIALIST_TYPES = [
+    "Developmental-behavioral pediatrician",
+    "Child neurologist",
+    "Child psychiatrist",
+    "Psychologist or neuropsychologist",
+    "Therapist or counselor",
+    "Other",
+]
+SPECIALIST_LOCATIONS = ["At UCLA", "Outside UCLA"]
+LAST_SEEN_OPTIONS = [
+    "Within the past 6 months",
+    "Within the past year",
+    "1–3 years ago",
+    "More than 3 years ago",
+]
+PRIOR_SPECIALIST_KEYS = ["name", "type", "where", "clinic", "last_seen"]
+
+def collect_prior_specialists():
+    """Specialists entered in the form (rows with at least one field filled)."""
+    rows = []
+    for i in range(st.session_state.get("prior_specialist_count", 1)):
+        row = {f: (st.session_state.get(f"prior_spec_{i}_{f}") or "").strip() for f in PRIOR_SPECIALIST_KEYS}
+        if row["where"] != "Outside UCLA":
+            row["clinic"] = ""
+        if any(row.values()):
+            rows.append(row)
+    return rows
+
+def format_specialist(row):
+    """One-line summary, e.g. 'Dr. Lee · Child neurologist · Outside UCLA (CHLA) · Last seen within the past year'."""
+    where = row.get("where", "")
+    if where and row.get("clinic"):
+        where = f"{where} ({row['clinic']})"
+    last_seen = f"Last seen {row['last_seen'][0].lower()}{row['last_seen'][1:]}" if row.get("last_seen") else ""
+    return " · ".join(v for v in [row.get("name", ""), row.get("type", ""), where, last_seen] if v)
 
 def clinic_codes(result):
     """'CAN' or 'CAN + PPC' for a routing result."""
@@ -317,16 +385,14 @@ def route_patient_new(age, selected_items, parent_concerns_text=""):
         
         # Identify specific neurologic concerns
         neuro_concerns = []
-        if "hx_seizures_convulsions_staring_spells" in selected_items:
-            neuro_concerns.append("Seizures/convulsions/staring spells")
-        if "hx_serious_head_injury" in selected_items:
-            neuro_concerns.append("Serious head injury")
+        if "hx_seizures_epilepsy" in selected_items:
+            neuro_concerns.append("Seizures/epilepsy")
         if "hx_cerebral_palsy" in selected_items:
             neuro_concerns.append("Cerebral palsy")
-        if "hx_tuberous_sclerosis" in selected_items:
-            neuro_concerns.append("Tuberous sclerosis")
         if "hx_frequent_headaches_migraines" in selected_items:
             neuro_concerns.append("Frequent headaches/migraines")
+        if "hx_tuberous_sclerosis" in selected_items:
+            neuro_concerns.append("Tuberous sclerosis")
         
         if neuro_concerns:
             reasoning.append(f"Neurologic conditions present: {', '.join(neuro_concerns)}")
@@ -386,8 +452,6 @@ def route_patient_new(age, selected_items, parent_concerns_text=""):
         # Check for DBP indicators
         if "dbp_flag" in flags:
             dbp_indicators = []
-            if "referred_regional_center" in selected_items:
-                dbp_indicators.append("Regional Center involvement")
             if "has_iep" in selected_items:
                 dbp_indicators.append("Has IEP")
             if "has_504" in selected_items:
@@ -399,7 +463,7 @@ def route_patient_new(age, selected_items, parent_concerns_text=""):
                 ("receives_aba_therapy", "ABA Therapy"),
                 ("receives_speech_therapy", "Speech Therapy"),
                 ("receives_social_skills_training", "Social Skills Training"),
-                ("receives_cbt_therapy", "CBT Therapy"),
+                ("receives_cbt_therapy", "Cognitive Behavioral Therapy"),
                 ("receives_physical_therapy", "Physical Therapy")
             ]
             
@@ -477,8 +541,6 @@ def route_patient_new(age, selected_items, parent_concerns_text=""):
                 complexity_factors.append("School system involvement (IEP)")
             if "has_504" in selected_items:
                 complexity_factors.append("School system involvement (504 Plan)")
-            if "referred_regional_center" in selected_items:
-                complexity_factors.append("Regional Center services")
             
             # List specific services
             service_items = [
@@ -486,7 +548,7 @@ def route_patient_new(age, selected_items, parent_concerns_text=""):
                 ("receives_aba_therapy", "ABA Therapy"),
                 ("receives_speech_therapy", "Speech Therapy"),
                 ("receives_social_skills_training", "Social Skills Training"),
-                ("receives_cbt_therapy", "CBT Therapy"),
+                ("receives_cbt_therapy", "Cognitive Behavioral Therapy"),
                 ("receives_physical_therapy", "Physical Therapy")
             ]
             
@@ -554,13 +616,12 @@ if st.session_state.current_mode == "Test the Logic":
         st.session_state.selected_items = set()
     
     # Initialize parent concerns text in session state
-    if 'parent_concerns_text' not in st.session_state:
-        st.session_state.parent_concerns_text = ""
     
     st.markdown("### Patient Information")
     
     # Age input
-    age_years = st.slider("Patient Age (years)", 0, 18, 8)
+    st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, #2774AE22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid #2774AE;">🎂 What is your child&#39;s age?</div>', unsafe_allow_html=True)
+    age_years = st.slider("Age (years)", 0, 18, 8)
     
     if age_years < 2:
         age_months = st.slider("Age in Months", 0, 23, age_years * 12)
@@ -576,17 +637,8 @@ if st.session_state.current_mode == "Test the Logic":
     else:
         st.warning("⚠️ No concerns selected - select relevant items below")
     
-    # Family goals section (free text + checkboxes) - AT TOP
+    # Family goals section (checkboxes) - AT TOP
     st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, #2774AE22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid #2774AE;">👨‍👩‍👧‍👦 What are your main goals for connecting with a specialist at UCLA?</div>', unsafe_allow_html=True)
-    parent_concerns_text = st.text_area(
-        "What are the parent's specific concerns?",
-        value=st.session_state.parent_concerns_text,
-        placeholder="e.g., 'Not speaking as much as siblings did at this age', 'Having meltdowns at school', 'Difficulty making friends'...",
-        height=80,
-        key="parent_concerns_input",
-        label_visibility="collapsed"
-    )
-    st.session_state.parent_concerns_text = parent_concerns_text
 
     # Parent goals checkboxes (recorded only; not used in routing yet)
     if 'parent_goals' not in st.session_state:
@@ -599,11 +651,48 @@ if st.session_state.current_mode == "Test the Logic":
         else:
             st.session_state.parent_goals.discard(goal_id)
 
+    # Prior specialist question (recorded only; not used in routing)
+    st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, #2774AE22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid #2774AE;">🩺 Has your child been seen by a neurodevelopmental or mental health specialist?</div>', unsafe_allow_html=True)
+    seen_before = st.radio(
+        "Has your child been seen by a neurodevelopmental or mental health specialist?",
+        ["No", "Yes"],
+        index=None,
+        horizontal=True,
+        key="prior_specialist_seen",
+        label_visibility="collapsed",
+    )
+    if seen_before == "Yes":
+        if "prior_specialist_count" not in st.session_state:
+            st.session_state.prior_specialist_count = 1
+        st.caption("Optional. Prototype only: please don't enter real patient or provider information.")
+        for i in range(st.session_state.prior_specialist_count):
+            if st.session_state.prior_specialist_count > 1:
+                st.markdown(f"**Specialist {i + 1}**")
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.text_input("Provider's name", key=f"prior_spec_{i}_name")
+            with col_b:
+                st.selectbox("Type of specialist", SPECIALIST_TYPES, index=None,
+                             placeholder="Select type", key=f"prior_spec_{i}_type")
+            col_a, col_b = st.columns(2)
+            with col_a:
+                where = st.selectbox("Where?", SPECIALIST_LOCATIONS, index=None,
+                                     placeholder="Select location", key=f"prior_spec_{i}_where")
+                if where == "Outside UCLA":
+                    st.text_input("Clinic or practice name", key=f"prior_spec_{i}_clinic")
+            with col_b:
+                st.selectbox("When were they last seen?", LAST_SEEN_OPTIONS, index=None,
+                             placeholder="Select timeframe", key=f"prior_spec_{i}_last_seen")
+        if st.button("➕ Add another specialist"):
+            st.session_state.prior_specialist_count += 1
+            st.rerun()
+    
     sections_data = SECTIONS
     
     # Render all sections in single column
     for section_id, section_data in sections_data.items():
         st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, {section_data["color"]}22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid {section_data["color"]};">{section_data["title"]}</div>', unsafe_allow_html=True)
+        st.markdown("**Select all that apply:**")
         
         # Render checkboxes in 2-column grid within each section
         items = section_data["items"]
@@ -648,13 +737,14 @@ if st.session_state.current_mode == "Test the Logic":
             # Convert selected items to the format the routing function expects
             selected_concerns = [i for i in ITEM_LABELS if i in st.session_state.selected_items]
             
-            clinic, confidence, reasoning, also_recommend = route_patient_new(age, selected_concerns, parent_concerns_text)
+            clinic, confidence, reasoning, also_recommend = route_patient_new(age, selected_concerns)
             
             st.session_state.last_routing = {
                 "age": age,
                 "selected_concerns": selected_concerns,
-                "parent_concerns_text": parent_concerns_text,
                 "parent_goals": [g for g, _ in PARENT_GOALS if g in st.session_state.parent_goals],
+                "prior_specialist_seen": st.session_state.get("prior_specialist_seen"),
+                "prior_specialists": collect_prior_specialists() if st.session_state.get("prior_specialist_seen") == "Yes" else [],
                 "clinic": clinic,
                 "also_recommend": also_recommend,
                 "confidence": confidence,
@@ -665,8 +755,9 @@ if st.session_state.current_mode == "Test the Logic":
     with col_clear:
         if st.button("🔄 Clear All", use_container_width=True):
             st.session_state.selected_items = set()
-            st.session_state.parent_concerns_text = ""
             st.session_state.parent_goals = set()
+            for key in [k for k in st.session_state if str(k).startswith("prior_spec")]:
+                del st.session_state[key]
             for goal_id, _ in PARENT_GOALS:
                 st.session_state.pop(f"chk_{goal_id}", None)
             for item_id in ITEM_LABELS:
@@ -724,13 +815,14 @@ if st.session_state.current_mode == "Test the Logic":
                     st.markdown(f"• {concern_label(concern)}")
         
         with col_summary2:
-            if result.get('parent_concerns_text'):
-                st.markdown("**Parent Concerns:**")
-                st.markdown(f"*\"{result['parent_concerns_text']}\"*")
             if result.get('parent_goals'):
                 st.markdown("**Family Goals:** *(not used in routing yet)*")
                 for goal_id in result['parent_goals']:
-                    st.markdown(f"• {PARENT_GOAL_LABELS[goal_id]}")
+                    st.markdown(f"• {PARENT_GOAL_LABELS.get(goal_id, goal_id)}")
+            if result.get('prior_specialist_seen'):
+                st.markdown(f"**Seen a specialist before:** {result['prior_specialist_seen']}")
+                for row in result.get('prior_specialists', []):
+                    st.markdown(f"• {format_specialist(row)}")
 
         # Feedback collection
         st.markdown("---")
@@ -794,14 +886,13 @@ elif st.session_state.current_mode == "Edge Case Explorer":
         
         STEP 3: NEUROLOGIC DISEASE SCREEN (Overrides Age)
         ────────────────────────────────────────────────────────────
-        → Uncontrolled seizures → NEUROLOGY
-        → Serious head injury → NEUROLOGY
-        → Tuberous sclerosis → NEUROLOGY
+        → Seizures/epilepsy → NEUROLOGY
         → Cerebral palsy → NEUROLOGY
+        → Frequent headaches/migraines → NEUROLOGY
+        → Tuberous sclerosis → NEUROLOGY
         → Neurogenetic syndromes: Angelman, ASXL-related,
           CDKL5, Dup15q, HNRNPH2, Kabuki, Prader-Willi → NEUROLOGY
           (+ PSYCHIATRY too if a psychiatric concern is present)
-        → Frequent headaches/migraines → NEUROLOGY
         
         (Note: DBP may follow for developmental/behavioral impact)
         
@@ -858,7 +949,6 @@ elif st.session_state.current_mode == "Edge Case Explorer":
         ────────────────────────────────────────────────────────────
         Refer to DBP when concerns span multiple domains:
         ▸ Has IEP or 504 Plan
-        ▸ Regional Center services
         ▸ Receives OT, PT, speech, ABA, or counseling
         ▸ Family needs diagnostic integration + school navigation
         ▸ No acute neuro/psych condition explains full presentation
@@ -981,18 +1071,17 @@ elif st.session_state.current_mode == "Session Data":
                 age_label = f"{round(age * 12)} months" if age < 2 else f"{age:.0f} yrs"
                 if concerns:
                     summary = ", ".join(concerns[:2]) + (f" +{len(concerns) - 2} more" if len(concerns) > 2 else "")
-                elif case.get('parent_concerns_text', '').strip():
-                    summary = "Parent concerns only"
                 else:
                     summary = "No concerns selected"
                 with st.expander(f"Case {idx}: Age {age_label}, {summary}"):
                     if concerns:
                         st.markdown(f"**Selected concerns:** {', '.join(concerns)}")
-                    if case.get('parent_concerns_text', '').strip():
-                        st.markdown(f"**Parent concerns:** {case['parent_concerns_text']}")
                     if case.get('parent_goals'):
                         goals = ", ".join(PARENT_GOAL_LABELS.get(g, g) for g in case['parent_goals'])
                         st.markdown(f"**Family goals:** {goals}")
+                    if case.get('prior_specialist_seen'):
+                        prior = "; ".join(format_specialist(row) for row in case.get('prior_specialists', []))
+                        st.markdown(f"**Seen a specialist before:** {case['prior_specialist_seen']}" + (f" ({prior})" if prior else ""))
                     col1, col2 = st.columns(2)
                     with col1:
                         st.markdown("**Algorithm Recommended:**")
