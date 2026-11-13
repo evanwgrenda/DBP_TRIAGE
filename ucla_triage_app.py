@@ -173,6 +173,26 @@ ITEM_FLAGS = {
     "receives_physical_therapy": ["dbp_flag"]
 }
 
+# Parent-identified goals: what the family is hoping to get from the visit.
+# Recorded for research only; they do NOT affect routing yet.
+PARENT_GOALS = [
+    ("goal_diagnosis_management", "Accurate diagnosis and management"),
+    ("goal_in_depth_testing", "In-depth testing (e.g., for a learning disability or to help advocate in the school system)"),
+    ("goal_neurologic_concern", "A neurologic concern (e.g., possible seizures, obtaining an MRI, muscle or nerve issues, or a specific diagnosis)"),
+    ("goal_genetic_testing", "Genetic testing"),
+    ("goal_medication_management", "Medication management"),
+    ("goal_resource_management", "Resource management (e.g., with a comprehensive team)"),
+    ("goal_research", "Research knowledge and involvement"),
+    ("goal_combination", "A combination of the above"),
+]
+
+# Routing flags for each parent goal. Empty = no effect on routing.
+# To wire a goal into the decision logic later, add flags here
+# (e.g., "goal_neurologic_concern": ["neuro_flag"]) and pass parent_goals
+# into route_patient_new.
+PARENT_GOAL_FLAGS = {goal_id: [] for goal_id, _ in PARENT_GOALS}
+PARENT_GOAL_LABELS = dict(PARENT_GOALS)
+
 def route_patient_new(age, selected_items, parent_concerns_text=""):
     """
     New routing function that works with button-based interface
@@ -732,7 +752,18 @@ if st.session_state.current_mode == "Test the Logic":
         label_visibility="collapsed"
     )
     st.session_state.parent_concerns_text = parent_concerns_text
-    
+
+    # Parent goals checkboxes (recorded only; not used in routing yet)
+    if 'parent_goals' not in st.session_state:
+        st.session_state.parent_goals = set()
+    st.markdown("**What is the family hoping to get from this visit?**")
+    st.caption("Recorded for research. Does not affect routing yet.")
+    for goal_id, goal_label in PARENT_GOALS:
+        if st.checkbox(goal_label, key=f"chk_{goal_id}"):
+            st.session_state.parent_goals.add(goal_id)
+        else:
+            st.session_state.parent_goals.discard(goal_id)
+
     # Section-based button interface with single-column layout
     sections_data = {
         "neuro_history": {
@@ -840,6 +871,7 @@ if st.session_state.current_mode == "Test the Logic":
                 "age": age,
                 "selected_concerns": selected_concerns,
                 "parent_concerns_text": parent_concerns_text,
+                "parent_goals": [g for g, _ in PARENT_GOALS if g in st.session_state.parent_goals],
                 "clinic": clinic,
                 "confidence": confidence,
                 "reasoning": reasoning,
@@ -850,6 +882,9 @@ if st.session_state.current_mode == "Test the Logic":
         if st.button("🔄 Clear All", use_container_width=True):
             st.session_state.selected_items = set()
             st.session_state.parent_concerns_text = ""
+            st.session_state.parent_goals = set()
+            for goal_id, _ in PARENT_GOALS:
+                st.session_state.pop(f"chk_{goal_id}", None)
             if 'last_routing' in st.session_state:
                 del st.session_state.last_routing
             st.rerun()
@@ -913,7 +948,11 @@ if st.session_state.current_mode == "Test the Logic":
             if result.get('parent_concerns_text'):
                 st.markdown("**Parent Concerns:**")
                 st.markdown(f"*\"{result['parent_concerns_text']}\"*")
-        
+            if result.get('parent_goals'):
+                st.markdown("**Family Goals:** *(not used in routing yet)*")
+                for goal_id in result['parent_goals']:
+                    st.markdown(f"• {PARENT_GOAL_LABELS[goal_id]}")
+
         # Feedback collection
         st.markdown("---")
         st.markdown("### 🎓 Clinical Validation")
@@ -1170,6 +1209,9 @@ elif st.session_state.current_mode == "Session Data":
                         st.markdown(f"**Selected concerns:** {', '.join(concerns)}")
                     if case.get('parent_concerns_text', '').strip():
                         st.markdown(f"**Parent concerns:** {case['parent_concerns_text']}")
+                    if case.get('parent_goals'):
+                        goals = ", ".join(PARENT_GOAL_LABELS.get(g, g) for g in case['parent_goals'])
+                        st.markdown(f"**Family goals:** {goals}")
                     col1, col2 = st.columns(2)
                     with col1:
                         st.markdown("**Algorithm Recommended:**")
