@@ -1153,7 +1153,23 @@ elif st.session_state.current_mode == "Session Data":
         if disagreements:
             st.markdown("#### Cases Where Clinical Judgment Differed")
             for idx, case in enumerate(disagreements, 1):
-                with st.expander(f"Case {idx}: Age {case['age']}, {case['primary_concern']}"):
+                concerns = [
+                    c.removeprefix("hx_").replace("_", " ").capitalize()
+                    for c in case.get('selected_concerns', [])
+                ]
+                age = case.get('age', 0)
+                age_label = f"{round(age * 12)} months" if age < 2 else f"{age:.0f} yrs"
+                if concerns:
+                    summary = ", ".join(concerns[:2]) + (f" +{len(concerns) - 2} more" if len(concerns) > 2 else "")
+                elif case.get('parent_concerns_text', '').strip():
+                    summary = "Parent concerns only"
+                else:
+                    summary = "No concerns selected"
+                with st.expander(f"Case {idx}: Age {age_label}, {summary}"):
+                    if concerns:
+                        st.markdown(f"**Selected concerns:** {', '.join(concerns)}")
+                    if case.get('parent_concerns_text', '').strip():
+                        st.markdown(f"**Parent concerns:** {case['parent_concerns_text']}")
                     col1, col2 = st.columns(2)
                     with col1:
                         st.markdown("**Algorithm Recommended:**")
