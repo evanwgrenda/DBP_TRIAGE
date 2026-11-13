@@ -167,7 +167,9 @@ ITEM_FLAGS = {
     # To wire into decision logic later, add flags (e.g., ["dbp_flag"]).
     "dx_adhd": [],
     "dx_autism": [],
+    "dx_global_developmental_delay": [],
     "dx_intellectual_disability": [],
+    "dx_speech_language_disorder": [],
     "dx_specific_learning_disability": [],
 
     # Mental Health History
@@ -232,8 +234,10 @@ SECTIONS = {
         "items": [
             ("dx_adhd", "Attention-Deficit/Hyperactivity Disorder"),
             ("dx_autism", "Autism Spectrum Disorder"),
+            ("dx_global_developmental_delay", "Global Developmental Delay"),
             ("dx_intellectual_disability", "Intellectual Disability"),
-            ("dx_specific_learning_disability", "Specific Learning Disability")
+            ("dx_specific_learning_disability", "Specific Learning Disability"),
+            ("dx_speech_language_disorder", "Speech and Language Disorders")
         ]
     },
     "neurogenetic_conditions": {
