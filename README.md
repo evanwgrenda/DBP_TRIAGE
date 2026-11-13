@@ -1,8 +1,8 @@
-# UCLA Neuro Clinic Routing Prototype
+# UCLA AI Triage Prototype
 
-A research tool for understanding clinical decision-making patterns in pediatric neurology referrals.
+A research tool for understanding clinical decision-making patterns in pediatric neurology referrals. It routes patients to DBP, CAN, or PPC.
 
-## Quick Start (For Tomorrow's Demo)
+## Quick Start
 
 ### 1. Install Dependencies
 
@@ -52,17 +52,22 @@ This is a **research collaboration tool** that helps Dr. Jeste see her own clini
 
 **Start with a straightforward case:**
 - Age: 7
-- Primary Concern: ADHD Only
-- No comorbidities
-- **Expected result:** Routes to DBP with high confidence
+- Check: *Has an Individualized Education Program (IEP)* and *Speech Therapy*
+- **Expected result:** Routes to DBP with High confidence
 
 **"This one's easy, right? Let's try something messier..."**
 
-**Try an edge case:**
+**Try a mixed case:**
+- Age: 4
+- Check: *Seizures, convulsions, or staring spells* and *ABA Therapy*
+- **Expected result:** Routes to CAN (Medium confidence). Neurology comes first, and DBP may follow.
+
+**Then a safety case:**
 - Age: 13
-- Primary Concern: Autism Spectrum  
-- Comorbidities: Depression, Suicidal Ideation
-- **Expected result:** Routes to PPC (Medium confidence)
+- Check: *Autism Spectrum Disorder* and *Suicidal ideation or suicide attempt*
+- **Expected result:** Routes to PPC (High confidence), because the safety screen overrides everything else.
+
+> Note: the Neurodevelopmental Diagnoses (ASD, ADHD, syndromes, etc.) and the "What is the family hoping to get from this visit?" checkboxes are recorded for research but don't drive routing yet. For example, "ADHD only" routes to DBP at Medium confidence.
 
 **"Now here's where I need your expertise - does this match how you'd route this patient?"**
 
@@ -148,11 +153,11 @@ If Dr. Jeste is thinking about this from a departmental efficiency perspective:
 
 **App won't start?**
 - Make sure you're in the right directory: `cd /path/to/folder`
-- Check Python version: `python --version` (need 3.8+)
+- Check Python version: `python --version` (need 3.9+)
 - Try: `python -m streamlit run ucla_triage_app.py`
 
 **Import errors?**
-- Reinstall: `pip install --upgrade streamlit pandas`
+- Reinstall: `pip install --upgrade -r requirements.txt`
 
 **App is slow?**
 - Close and restart it
