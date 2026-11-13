@@ -161,16 +161,19 @@ ITEM_FLAGS = {
     "hx_seizures_epilepsy": ["neuro_flag", "high_acuity_flag"],
     "hx_cerebral_palsy": ["neuro_flag", "high_acuity_flag"],
     "hx_tics": [],  # recorded only, no routing flags yet
+    "hx_motor_delays": [],  # recorded only, no routing flags yet
 
     # Neurodevelopmental conditions: recorded only, no routing flags yet.
     # To wire into decision logic later, add flags (e.g., ["dbp_flag"]).
     "dx_adhd": [],
     "dx_autism": [],
+    "dx_intellectual_disability": [],
     "dx_specific_learning_disability": [],
 
     # Mental Health History
     "hx_bipolar": ["psych_flag", "high_acuity_flag"],
     "hx_ocd": ["psych_flag"],
+    "hx_ptsd": ["psych_flag"],
     "hx_anxiety_panic": ["psych_flag"],
     "hx_depression": ["psych_flag"],
     "hx_suicidal_ideation_or_attempt": ["psych_flag", "high_acuity_flag", "safety_flag"],
@@ -229,6 +232,7 @@ SECTIONS = {
         "items": [
             ("dx_adhd", "Attention-Deficit/Hyperactivity Disorder"),
             ("dx_autism", "Autism Spectrum Disorder"),
+            ("dx_intellectual_disability", "Intellectual Disability"),
             ("dx_specific_learning_disability", "Specific Learning Disability")
         ]
     },
@@ -255,7 +259,8 @@ SECTIONS = {
             ("hx_frequent_headaches_migraines", "Frequent headaches/migraines"),
             ("hx_seizures_epilepsy", "Seizures/epilepsy"),
             ("hx_cerebral_palsy", "Cerebral palsy"),
-            ("hx_tics", "Tics")  # 4th item = right column, directly under Seizures/epilepsy
+            ("hx_tics", "Tics"),  # 4th item = right column, directly under Seizures/epilepsy
+            ("hx_motor_delays", "Gross/fine motor delays")
         ]
     },
     "mental_health_history": {
@@ -266,6 +271,7 @@ SECTIONS = {
             ("hx_bipolar", "Bipolar disorder"),
             ("hx_depression", "Depression"),
             ("hx_ocd", "Obsessive-compulsive disorder (OCD)"),
+            ("hx_ptsd", "Post-Traumatic Stress Disorder (PTSD)"),
             ("hx_suicidal_ideation_or_attempt", "Suicidal ideation or suicide attempt")
         ]
     },
@@ -288,14 +294,15 @@ SECTIONS = {
         "title": "🏥 Does your child currently receive any of the following services?",
         "color": "#2774AE",
         "items": [
+            # shown in this order (not alphabetized)
             ("receives_aba_therapy", "ABA Therapy"),
-            ("receives_cbt_therapy", "Cognitive Behavioral Therapy"),
+            ("receives_speech_therapy", "Speech Therapy"),
             ("receives_occupational_therapy", "Occupational Therapy"),
             ("receives_physical_therapy", "Physical Therapy"),
-            ("receives_respite_care", "Respite Care"),
-            ("receives_self_determination_program", "Self-Determination Program"),
+            ("receives_cbt_therapy", "Cognitive Behavioral Therapy"),
             ("receives_social_skills_training", "Social Skills Training"),
-            ("receives_speech_therapy", "Speech Therapy")
+            ("receives_respite_care", "Respite Care"),
+            ("receives_self_determination_program", "Self-Determination Program")
         ]
     }
 }
@@ -510,6 +517,8 @@ def route_patient_new(age, selected_items, parent_concerns_text=""):
                 psych_concerns.append("Bipolar disorder")
             if "hx_ocd" in selected_items:
                 psych_concerns.append("OCD")
+            if "hx_ptsd" in selected_items:
+                psych_concerns.append("PTSD")
             if "hx_anxiety_panic" in selected_items:
                 psych_concerns.append("Anxiety/panic attacks")
             if "hx_depression" in selected_items:
