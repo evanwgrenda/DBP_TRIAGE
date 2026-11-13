@@ -270,8 +270,8 @@ SECTIONS = {
             ("hx_anxiety_panic", "Anxiety or panic attacks"),
             ("hx_bipolar", "Bipolar disorder"),
             ("hx_depression", "Depression"),
-            ("hx_ocd", "Obsessive-compulsive disorder (OCD)"),
-            ("hx_ptsd", "Post-Traumatic Stress Disorder (PTSD)"),
+            ("hx_ocd", "Obsessive-compulsive disorder"),
+            ("hx_ptsd", "Post-Traumatic Stress Disorder"),
             ("hx_suicidal_ideation_or_attempt", "Suicidal ideation or suicide attempt")
         ]
     },
@@ -516,9 +516,9 @@ def route_patient_new(age, selected_items, parent_concerns_text=""):
             if "hx_bipolar" in selected_items:
                 psych_concerns.append("Bipolar disorder")
             if "hx_ocd" in selected_items:
-                psych_concerns.append("OCD")
+                psych_concerns.append("Obsessive-compulsive disorder")
             if "hx_ptsd" in selected_items:
-                psych_concerns.append("PTSD")
+                psych_concerns.append("Post-Traumatic Stress Disorder")
             if "hx_anxiety_panic" in selected_items:
                 psych_concerns.append("Anxiety/panic attacks")
             if "hx_depression" in selected_items:
