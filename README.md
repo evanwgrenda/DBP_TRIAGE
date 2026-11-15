@@ -1,6 +1,6 @@
 # UCLA AI Triage Prototype
 
-A research tool for understanding clinical decision-making patterns in pediatric neurology referrals. It routes patients to DBP, CAN, or PPC.
+A research tool for understanding clinical decision-making patterns in pediatric neurology referrals. It routes patients across 7 UCLA clinics: CAN, Peds Neuro NDD, DBP, HRIF, UC-LEND, MPAC and Psychiatry.
 
 ## Quick Start
 
@@ -46,7 +46,7 @@ This is a **research collaboration tool** that helps Dr. Jeste see her own clini
 
 ### Opening (2 minutes)
 
-**"Dr. Jeste, I built this prototype because I wanted to understand how you think about routing decisions across DBP, CAN, and PPC. I'm hoping we can break it together - because every time you tell me 'No, that's wrong,' we're collecting valuable data about clinical decision-making."**
+**"Dr. Jeste, I built this prototype because I wanted to understand how you think about routing decisions across our 7 clinics. I'm hoping we can break it together - because every time you tell me 'No, that's wrong,' we're collecting valuable data about clinical decision-making."**
 
 ### Mode 1: Test the Logic (5-7 minutes)
 
@@ -57,17 +57,22 @@ This is a **research collaboration tool** that helps Dr. Jeste see her own clini
 
 **"This one's easy, right? Let's try something messier..."**
 
-**Try a mixed case:**
-- Age: 4
-- Check: *Tuberous Sclerosis Complex* and *ABA Therapy*
-- **Expected result:** Routes to CAN (Medium confidence). Neurology comes first, and DBP may follow.
+**Try a syndrome case:**
+- Age: 6
+- Check: *Angelman Syndrome* and *Depression*
+- **Expected result:** Recommends **two clinics**: Peds Neuro NDD (its dedicated Angelman clinic) and Psychiatry for the depression.
+
+**Then a testing case:**
+- Age: 10
+- Check: *Attention-Deficit/Hyperactivity Disorder* and *Specific Learning Disability*
+- **Expected result:** DBP for the ADHD, plus MPAC for neuropsychological testing.
 
 **Then a safety case:**
 - Age: 13
 - Check: *Autism Spectrum Disorder* and *Suicidal ideation or suicide attempt*
 - **Expected result:** Routes to PPC (High confidence), because the safety screen overrides everything else.
 
-> Note: the neurodevelopmental conditions (ASD, ADHD, SLD), Rett, Down syndrome, the family-goal checkboxes and the prior-specialist question are recorded for research but don't drive routing yet. The neurogenetic syndromes do route to Neurology. For example, "ADHD only" routes to DBP at Medium confidence.
+> Note: rules marked "Assumption pending clinical review" in the app (CDKL5/Rett/Down → CAN, the HRIF age cutoff, the definition of Autism+/ADHD+, the ID age cutoff) are placeholders to confirm. UC-LEND isn't reachable yet, because the form doesn't ask about psychosocial complexity. The prior-specialist question is recorded only.
 
 **"Now here's where I need your expertise - does this match how you'd route this patient?"**
 
@@ -100,7 +105,7 @@ Show the export function:
 - **I provide the systems thinking** (building tools, analyzing patterns, structuring the data)
 - **Together we study** how clinical decision-making works in complex pediatric neurology referrals
 
-This aligns perfectly with your vision for an integrated next-gen clinic, because what we're really building is a shared language between DBP, CAN, and PPC."**
+This aligns perfectly with your vision for an integrated next-gen clinic, because what we're really building is a shared language across our 7 clinics."**
 
 ---
 
@@ -120,7 +125,7 @@ This aligns perfectly with your vision for an integrated next-gen clinic, becaus
 
 If Dr. Jeste is thinking about this from a departmental efficiency perspective:
 
-**Current state:** Every referral requires manual triage by skilled staff who understand the nuances of all three clinics.
+**Current state:** Every referral requires manual triage by skilled staff who understand the nuances of all seven clinics.
 
 **Future state:** A validated routing system that:
 - Handles straightforward cases automatically (60-70% of referrals?)

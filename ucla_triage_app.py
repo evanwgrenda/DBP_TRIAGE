@@ -120,31 +120,51 @@ if 'edge_cases' not in st.session_state:
 if 'current_mode' not in st.session_state:
     st.session_state.current_mode = "Test the Logic"
 
-# Clinic definitions
+# Clinic definitions (7 UCLA clinics)
 CLINICS = {
+    "CAN": {
+        "name": "CAN Clinic",
+        "description": "Neurodevelopmental and neurogenetic syndromes (incl. rare chromatinopathies), syndromic autism, early motor issues, epilepsy + NDD, full team evaluations",
+        "color": "#FFB81C"
+    },
+    "NEURO": {
+        "name": "Pediatric Neurology – Neurodevelopmental Disorders (NDD)",
+        "description": "Autism+ and ADHD+, epilepsy + NDD, regression, developmental delay of unknown cause; Angelman, Dup15q and HNRNPH2 clinics",
+        "color": "#8237FF"
+    },
     "DBP": {
         "name": "Developmental & Behavioral Pediatrics",
-        "description": "Autism, ADHD, developmental delays in younger children",
+        "description": "Autism and ID evaluation, ADHD evaluation and medication, anxiety and disruptive-behavior medication",
         "color": "#2774AE"
     },
-    "CAN": {
-        "name": "Child & Adolescent Neurology",
-        "description": "Epilepsy, complex neurological conditions, movement disorders",
-        "color": "#FFD100"
+    "HRIF": {
+        "name": "High-Risk Infant Follow-up (HRIF)",
+        "description": "NICU graduates; early identification of cerebral palsy",
+        "color": "#00A5E5"
+    },
+    "LEND": {
+        "name": "UC-LEND",
+        "description": "Med-Peds and pediatricians; cases with psychosocial complexity (no full evaluations)",
+        "color": "#00C389"
+    },
+    "MPAC": {
+        "name": "MPAC – Neuropsychological Testing",
+        "description": "Neuropsychological testing only",
+        "color": "#8BB8E8"
     },
     "PPC": {
-        "name": "Pediatric Psychiatry Clinic",
-        "description": "Mood disorders, anxiety, behavioral health in older children/adolescents",
+        "name": "Child & Adolescent Psychiatry",
+        "description": "Primary psychiatric conditions: depression, PTSD, bipolar disorder, OCD, safety concerns",
         "color": "#005587"
-    }
+    },
 }
 
 # Mapping of button IDs to clinical flags
 ITEM_FLAGS = {
+    # Flags are used for school-support/service signals (dbp_flag) and summaries.
+    # Clinic routing rules live in route_patient_new (see the rule lists above it).
     # Neurogenetic conditions
-    # Route to Neurology (CAN)
     "hx_tuberous_sclerosis": ["neuro_flag", "high_acuity_flag"],
-    # Route to Neurology (CAN); + Psychiatry (PPC) if a psychiatric concern is also present
     "dx_angelman": ["neuro_flag", "neurogenetic_flag"],
     "dx_asxl": ["neuro_flag", "neurogenetic_flag"],
     "dx_cdkl5": ["neuro_flag", "neurogenetic_flag"],
@@ -156,7 +176,7 @@ ITEM_FLAGS = {
     "dx_rett": [],
     "dx_down": [],
 
-    # Neurologic conditions: route to Neurology (CAN)
+    # Neurologic conditions
     "hx_frequent_headaches_migraines": ["neuro_flag"],
     "hx_seizures_epilepsy": ["neuro_flag", "high_acuity_flag"],
     "hx_cerebral_palsy": ["neuro_flag", "high_acuity_flag"],
@@ -359,248 +379,173 @@ def clinic_codes(result):
     """'CAN' or 'CAN + PPC' for a routing result."""
     return " + ".join([result['clinic']] + result.get('also_recommend', []))
 
-def route_patient_new(age, selected_items, parent_concerns_text=""):
+# ─── Routing rule inputs ────────────────────────────────────────────────
+# Every judgment call awaiting clinical confirmation is marked "ASSUMPTION".
+NEURO_CLINIC_SYNDROMES = ["dx_angelman", "dx_dup15q", "dx_hnrnph2"]      # dedicated Peds Neuro NDD clinics
+CAN_SYNDROMES = ["dx_kabuki", "dx_asxl", "dx_prader_willi"]               # chromatinopathies / neurogenetic syndromes
+CAN_SYNDROMES_UNCONFIRMED = ["dx_cdkl5", "dx_rett", "dx_down"]            # ASSUMPTION: CAN (could be Peds Neuro)
+NDD_DIAGNOSES = ["dx_adhd", "dx_autism", "dx_global_developmental_delay", "dx_intellectual_disability",
+                 "dx_specific_learning_disability", "dx_speech_language_disorder"]
+PRIMARY_PSYCH = ["hx_depression", "hx_ptsd", "hx_bipolar", "hx_ocd"]      # DBP and Peds Neuro do not see these alone
+NEURO_ONLY = ["hx_seizures_epilepsy", "hx_frequent_headaches_migraines", "hx_tics"]
+MOTOR = ["hx_cerebral_palsy", "hx_motor_delays"]
+AUTISM_ADHD_PLUS = ["hx_frequent_headaches_migraines", "hx_tics", "hx_cerebral_palsy", "hx_motor_delays",
+                    "dx_global_developmental_delay"]                      # ASSUMPTION: what makes a case "Autism+ / ADHD+"
+MPAC_GOALS = ["goal_testing_neuropsychiatric", "goal_testing_academic"]
+HRIF_MAX_AGE = 3              # ASSUMPTION: HRIF follows children up to age 3 (notes say 3 or 5)
+DBP_ID_MAX_AGE = 12           # ASSUMPTION: DBP doesn't take "older" patients whose main question is ID
+UNCONFIRMED = "⚠️ Assumption pending clinical review"
+
+def route_patient_new(age, selected_items, parent_goals=()):
     """
-    New routing function that works with button-based interface
-    Args:
-        age: patient age in years (float for infants)
-        selected_items: list of selected item IDs
-        parent_concerns_text: free text of parent concerns
+    Route a patient to one of 7 UCLA clinics. Rules run in order; the first match wins.
     Returns: (clinic, confidence, reasoning, also_recommend)
-        also_recommend: list of additional clinic codes to recommend alongside clinic
+        also_recommend: additional clinic codes recommended alongside clinic
     """
-    reasoning = []
-    confidence = "High"
-    
-    # Collect all flags from selected items
+    sel = set(selected_items)
+    goals = set(parent_goals)
+    has = lambda ids: [i for i in ids if i in sel]
+    names = lambda ids: ", ".join(ITEM_LABELS.get(i, i) for i in ids)
     flags = set()
-    for item_id in selected_items:
-        if item_id in ITEM_FLAGS:
-            flags.update(ITEM_FLAGS[item_id])
-    
-    # Add dbp_flag if parent has concerns (text is present)
-    if parent_concerns_text and parent_concerns_text.strip():
-        flags.add("dbp_flag")
-    
-    # STEP 2: SAFETY SCREEN (Highest Priority)
-    if "safety_flag" in flags:
-        reasoning.append("🚨 SAFETY PRIORITY: Acute psychiatric safety concern detected")
-        reasoning.append("Patient has suicidal ideation or suicide attempt history")
-        reasoning.append("Immediate referral to Child & Adolescent Psychiatry required")
-        reasoning.append("DBP is not appropriate as first-line care for acute safety concerns")
-        return "PPC", "High", reasoning, []
-    
-    # STEP 3: NEUROLOGIC DISEASE SCREEN (Overrides Age)
-    if "neuro_flag" in flags:
-        reasoning.append("🧠 NEUROLOGIC CONDITION: Primary neurologic disease detected")
-        
-        # Identify specific neurologic concerns
-        neuro_concerns = []
-        if "hx_seizures_epilepsy" in selected_items:
-            neuro_concerns.append("Seizures/epilepsy")
-        if "hx_cerebral_palsy" in selected_items:
-            neuro_concerns.append("Cerebral palsy")
-        if "hx_frequent_headaches_migraines" in selected_items:
-            neuro_concerns.append("Frequent headaches/migraines")
-        if "hx_tuberous_sclerosis" in selected_items:
-            neuro_concerns.append("Tuberous sclerosis")
-        
-        if neuro_concerns:
-            reasoning.append(f"Neurologic conditions present: {', '.join(neuro_concerns)}")
-        
-        syndromes = [ITEM_LABELS[i] for i in ITEM_LABELS
-                     if i in selected_items and "neurogenetic_flag" in ITEM_FLAGS.get(i, [])]
-        if syndromes:
-            reasoning.append(f"Neurogenetic syndrome: {', '.join(syndromes)} → managed in Neurology")
-        
-        # Neurogenetic syndrome + psychiatric concern → recommend Neurology AND Psychiatry
-        also_recommend = []
-        if syndromes and "psych_flag" in flags:
-            psych = [ITEM_LABELS[i] for i in ITEM_LABELS
-                     if i in selected_items and "psych_flag" in ITEM_FLAGS.get(i, [])]
-            reasoning.append(f"💭 Psychiatric concern also present: {', '.join(psych)}")
-            reasoning.append("→ Recommend BOTH Neurology and Psychiatry")
-            also_recommend = ["PPC"]
-        else:
-            reasoning.append("Refer to Pediatric Neurology first for neurologic evaluation")
-        
-        # Check if developmental concerns also present
-        if "dbp_flag" in flags:
-            reasoning.append("Note: Developmental/educational concerns also present")
-            reasoning.append("DBP may follow after neurologic evaluation for developmental impact")
-            confidence = "Medium"
-        
-        return "CAN", confidence, reasoning, also_recommend
-    
-    # STEP 1: AGE-BASED PRIORITIZATION
-    
-    # AGE < 2 YEARS: DBP Fast-Track
-    if age < 2:
-        reasoning.append("👶 Age < 2 years: DBP Fast-Track Priority")
-        reasoning.append("Early intervention is critical for developmental and behavioral concerns")
-        
-        if "dbp_flag" in flags or parent_concerns_text.strip():
-            reasoning.append("Developmental, behavioral, or regulatory concern identified")
-            if parent_concerns_text.strip():
-                reasoning.append(f"Parent concerns: \"{parent_concerns_text[:100]}...\"" if len(parent_concerns_text) > 100 else f"Parent concerns: \"{parent_concerns_text}\"")
-            reasoning.append("→ DBP for developmental assessment and early intervention services")
-            return "DBP", "High", reasoning, []
-        
-        # Even without explicit DBP flags, infants with concerns should go to DBP
-        if len(selected_items) > 0:
-            reasoning.append("Any developmental or behavioral concern in child <2 years → DBP")
-            return "DBP", "High", reasoning, []
-        
-        # No concerns selected
-        reasoning.append("No specific concerns identified for this infant")
-        reasoning.append("Consider whether developmental screening is needed")
-        return "DBP", "Medium", reasoning, []
-    
-    # AGE 2-5 YEARS: DBP Preferred
-    elif age >= 2 and age < 6:
-        reasoning.append("🧒 Age 2-5 years: DBP Preferred for Developmental Concerns")
-        
-        # Check for DBP indicators
-        if "dbp_flag" in flags:
-            dbp_indicators = []
-            if "has_iep" in selected_items:
-                dbp_indicators.append("Has IEP")
-            if "has_504" in selected_items:
-                dbp_indicators.append("Has 504 Plan")
-            
-            # List specific services
-            service_items = [
-                ("receives_occupational_therapy", "Occupational Therapy"),
-                ("receives_aba_therapy", "ABA Therapy"),
-                ("receives_speech_therapy", "Speech Therapy"),
-                ("receives_social_skills_training", "Social Skills Training"),
-                ("receives_cbt_therapy", "Cognitive Behavioral Therapy"),
-                ("receives_physical_therapy", "Physical Therapy")
-            ]
-            
-            services = []
-            for item_id, service_name in service_items:
-                if item_id in selected_items:
-                    services.append(service_name)
-            
-            if services:
-                dbp_indicators.append(f"Receiving services: {', '.join(services)}")
-            
-            if parent_concerns_text.strip():
-                dbp_indicators.append("Parent has developmental/behavioral concerns")
-            
-            if dbp_indicators:
-                reasoning.append("Developmental complexity indicators present:")
-                for indicator in dbp_indicators:
-                    reasoning.append(f"  • {indicator}")
-            
-            reasoning.append("Complex developmental presentation requiring DBP evaluation")
-            return "DBP", "High", reasoning, []
-        
-        # Check for psychiatric concerns without developmental issues
-        if "psych_flag" in flags and "dbp_flag" not in flags:
-            reasoning.append("Primary psychiatric concern in preschool-age child")
-            reasoning.append("No significant developmental/educational complexity identified")
-            reasoning.append("Psychiatry may be appropriate for medication management")
-            confidence = "Medium"
-            reasoning.append("⚠️ Consider developmental factors in this age group")
-            return "PPC", confidence, reasoning, []
-        
-        # Default to DBP for this age range
-        reasoning.append("Preschool age with concerns → DBP preferred")
-        return "DBP", "High", reasoning, []
-    
-    # AGE ≥ 6 YEARS: Selective DBP Use
-    else:
-        reasoning.append(f"📚 Age {age:.0f} years: Selective DBP criteria apply")
-        
-        # STEP 4: PRIMARY PSYCHIATRIC CONDITION SCREEN
-        if "psych_flag" in flags:
-            psych_concerns = []
-            if "hx_bipolar" in selected_items:
-                psych_concerns.append("Bipolar disorder")
-            if "hx_ocd" in selected_items:
-                psych_concerns.append("Obsessive-compulsive disorder")
-            if "hx_ptsd" in selected_items:
-                psych_concerns.append("Post-Traumatic Stress Disorder")
-            if "hx_anxiety_panic" in selected_items:
-                psych_concerns.append("Anxiety/panic attacks")
-            if "hx_depression" in selected_items:
-                psych_concerns.append("Depression")
-            
-            if psych_concerns:
-                reasoning.append("Psychiatric conditions present:")
-                for concern in psych_concerns:
-                    reasoning.append(f"  • {concern}")
-            
-            # Check if developmental complexity also present
-            if "dbp_flag" in flags:
-                reasoning.append("Note: Developmental/educational complexity also present")
-                reasoning.append("Refer to Psychiatry for psychiatric management")
-                reasoning.append("DBP may co-manage later for developmental/school issues")
-                confidence = "Medium"
-                return "PPC", confidence, reasoning, []
-            else:
-                reasoning.append("Primary psychiatric condition without developmental complexity")
-                reasoning.append("→ Refer to Child & Adolescent Psychiatry")
-                return "PPC", "High", reasoning, []
-        
-        # STEP 5: DEVELOPMENTAL / SYSTEMS-BASED COMPLEXITY
-        if "dbp_flag" in flags:
-            reasoning.append("✅ DBP-Appropriate Complexity Identified:")
-            
-            complexity_factors = []
-            if "has_iep" in selected_items:
-                complexity_factors.append("School system involvement (IEP)")
-            if "has_504" in selected_items:
-                complexity_factors.append("School system involvement (504 Plan)")
-            
-            # List specific services
-            service_items = [
-                ("receives_occupational_therapy", "Occupational Therapy"),
-                ("receives_aba_therapy", "ABA Therapy"),
-                ("receives_speech_therapy", "Speech Therapy"),
-                ("receives_social_skills_training", "Social Skills Training"),
-                ("receives_cbt_therapy", "Cognitive Behavioral Therapy"),
-                ("receives_physical_therapy", "Physical Therapy")
-            ]
-            
-            services = []
-            for item_id, service_name in service_items:
-                if item_id in selected_items:
-                    services.append(service_name)
-            
-            if services:
-                complexity_factors.append(f"Receiving services: {', '.join(services)}")
-            
-            if parent_concerns_text.strip():
-                complexity_factors.append("Parent-identified developmental/behavioral concerns")
-            
-            for factor in complexity_factors:
-                reasoning.append(f"  • {factor}")
-            
-            reasoning.append("Concerns span multiple domains requiring diagnostic integration")
-            reasoning.append("DBP appropriate for systems-based complexity and school navigation")
-            return "DBP", "High", reasoning, []
-        
-        # No clear complexity indicators for older child
-        reasoning.append("⚠️ Older child without clear DBP complexity indicators")
-        
-        if len(selected_items) == 0 and not parent_concerns_text.strip():
-            reasoning.append("No specific concerns identified")
-            reasoning.append("Consider whether specialist referral is needed")
-            return "DBP", "Low", reasoning, []
-        
-        # Has some concerns but unclear routing
-        reasoning.append("Some concerns present but unclear complexity")
-        reasoning.append("Consider whether developmental integration is truly needed")
-        reasoning.append("May benefit from clinical triage discussion")
-        confidence = "Medium"
-        return "DBP", confidence, reasoning, []
+    for item_id in sel:
+        flags.update(ITEM_FLAGS.get(item_id, []))
+    ndd = has(NDD_DIAGNOSES)
+    psych = has(PRIMARY_PSYCH)
+    anxiety = "hx_anxiety_panic" in sel
+    seizures = "hx_seizures_epilepsy" in sel
+    reasoning, also = [], []
+
+    def finish(clinic, confidence):
+        # Add-on: neuropsych/academic testing goal or a learning disability → MPAC as well
+        if clinic != "MPAC" and (goals & set(MPAC_GOALS) or "dx_specific_learning_disability" in sel):
+            reasoning.append("➕ Testing need (neuropsych/academic testing or learning disability) → also MPAC")
+            also.append("MPAC")
+        return clinic, confidence, reasoning, list(dict.fromkeys(c for c in also if c != clinic))
+
+    # 1. SAFETY
+    if "hx_suicidal_ideation_or_attempt" in sel:
+        reasoning += ["🚨 SAFETY PRIORITY: suicidal ideation or attempt reported",
+                      "→ Child & Adolescent Psychiatry first"]
+        return finish("PPC", "High")
+
+    # 2. NAMED NEUROGENETIC SYNDROMES
+    syndrome_clinic = None
+    if has(NEURO_CLINIC_SYNDROMES):
+        reasoning += [f"🧬 {names(has(NEURO_CLINIC_SYNDROMES))}: dedicated Peds Neuro NDD clinic"]
+        syndrome_clinic, conf = "NEURO", "High"
+    elif has(CAN_SYNDROMES):
+        reasoning += [f"🧬 {names(has(CAN_SYNDROMES))}: neurogenetic syndrome → CAN"]
+        syndrome_clinic, conf = "CAN", "High"
+    elif has(CAN_SYNDROMES_UNCONFIRMED):
+        reasoning += [f"🧬 {names(has(CAN_SYNDROMES_UNCONFIRMED))}: neurogenetic syndrome → CAN", UNCONFIRMED]
+        syndrome_clinic, conf = "CAN", "Medium"
+    if syndrome_clinic:
+        if psych or anxiety:
+            reasoning.append(f"💭 Psychiatric concern also present: {names(psych + (['hx_anxiety_panic'] if anxiety else []))} → also Psychiatry")
+            also.append("PPC")
+        return finish(syndrome_clinic, conf)
+
+    # 3. TUBEROUS SCLEROSIS COMPLEX
+    if "hx_tuberous_sclerosis" in sel:
+        reasoning.append("🧬 Tuberous Sclerosis Complex → DBP for autism and learning evaluation")
+        if seizures:
+            reasoning.append("⚡ Seizures also present → also Peds Neuro (epilepsy + NDD)")
+            also.append("NEURO")
+        return finish("DBP", "High")
+
+    # 4. HRIF: early motor / CP in young children
+    if age < HRIF_MAX_AGE and has(MOTOR):
+        reasoning += [f"👶 Age under {HRIF_MAX_AGE} with {names(has(MOTOR))} → HRIF (early CP identification)",
+                      UNCONFIRMED + f" (HRIF age cutoff {HRIF_MAX_AGE}; NICU history not asked)"]
+        return finish("HRIF", "Medium")
+
+    # 5. EPILEPSY + NDD
+    if seizures and (ndd or has(MOTOR)):
+        reasoning += [f"⚡ Seizures/epilepsy with {names(ndd + has(MOTOR))} → Peds Neuro (epilepsy + NDD)",
+                      "Note: CAN also sees epilepsy + NDD"]
+        return finish("NEURO", "High")
+
+    # 6. PRIMARY PSYCHIATRIC CONDITIONS
+    if psych:
+        reasoning += [f"💭 {names(psych)}: primary psychiatric condition → Psychiatry",
+                      "DBP and Peds Neuro do not see primary psychiatric conditions"]
+        if ndd:
+            reasoning.append(f"Developmental diagnosis also present ({names(ndd)}) → also DBP")
+            also.append("DBP")
+        return finish("PPC", "High")
+
+    # 7. UNDER 2: early-intervention fast track
+    if age < 2 and sel:
+        reasoning += ["👶 Age under 2: early intervention priority → DBP"]
+        return finish("DBP", "High")
+
+    # 8. AUTISM+ / ADHD+
+    core = has(["dx_autism", "dx_adhd"])
+    plus = has(AUTISM_ADHD_PLUS)
+    if core and (plus or len(core) == 2):
+        reasoning += [f"🧩 {names(core)} with co-occurring {names(plus) if plus else 'condition'} → Peds Neuro (Autism+/ADHD+)",
+                      UNCONFIRMED + " (definition of '+'; CAN also sees syndromic autism)"]
+        return finish("NEURO", "Medium")
+
+    # 9. GLOBAL DEVELOPMENTAL DELAY
+    if "dx_global_developmental_delay" in sel:
+        reasoning.append("🧩 Global developmental delay → Peds Neuro (developmental delay of unknown cause)")
+        return finish("NEURO", "High")
+
+    # 10. NEUROLOGIC CONDITIONS
+    if has(NEURO_ONLY):
+        reasoning.append(f"⚡ {names(has(NEURO_ONLY))} → Pediatric Neurology")
+        return finish("NEURO", "High")
+    if has(MOTOR):
+        reasoning.append(f"🦵 {names(has(MOTOR))} → CAN (motor issues)")
+        return finish("CAN", "High")
+
+    # 11. ANXIETY
+    if anxiety:
+        if ndd:
+            reasoning.append(f"💭 Anxiety with {names(ndd)} → DBP (anxiety medication management with NDD)")
+            return finish("DBP", "High")
+        reasoning.append("💭 Anxiety without a developmental diagnosis → Psychiatry")
+        return finish("PPC", "High")
+
+    # 12. INTELLECTUAL DISABILITY
+    if "dx_intellectual_disability" in sel:
+        if age >= DBP_ID_MAX_AGE:
+            reasoning += [f"Age {age:.0f} with intellectual disability: DBP doesn't take older patients with a primary ID question → CAN",
+                          UNCONFIRMED + f" (age cutoff {DBP_ID_MAX_AGE})"]
+            return finish("CAN", "Medium")
+        reasoning.append("Intellectual disability → DBP (ID evaluation)")
+        return finish("DBP", "High")
+
+    # 13. AUTISM / ADHD / SPEECH-LANGUAGE ALONE
+    if core or "dx_speech_language_disorder" in sel:
+        reasoning.append(f"🧩 {names(core + has(['dx_speech_language_disorder']))} → DBP (evaluation and medication management)")
+        return finish("DBP", "High")
+
+    # 14. LEARNING DISABILITY ALONE
+    if "dx_specific_learning_disability" in sel:
+        reasoning += ["📚 Specific learning disability → MPAC (neuropsychological testing)",
+                      "Peds Neuro does not see learning disability"]
+        return finish("MPAC", "High")
+
+    # 15. SCHOOL SUPPORTS AND SERVICES ONLY
+    dbp_items = [i for i in sel if "dbp_flag" in ITEM_FLAGS.get(i, [])]
+    if dbp_items:
+        reasoning.append(f"📚 School supports or services: {names(sorted(dbp_items, key=list(ITEM_LABELS).index))} → DBP")
+        return finish("DBP", "High" if len(dbp_items) >= 2 else "Medium")
+    if sel:
+        reasoning += ["Some items selected, but none that point to a specific clinic → DBP",
+                      "May benefit from a clinical triage discussion"]
+        return finish("DBP", "Low")
+    if goals & set(MPAC_GOALS):
+        reasoning.append("Only goal selected is testing → MPAC")
+        return finish("MPAC", "Medium")
+    reasoning.append("No concerns selected: enter the child's conditions, supports or services to route")
+    return finish("DBP", "Low")
 
 # Header
 st.markdown('<div class="main-header">🏥 UCLA AI Triage Prototype</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Building the Next Generation Integrated Clinic • DBP • CAN • PPC</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Building the Next Generation Integrated Clinic • CAN • Peds Neuro • DBP • HRIF • UC-LEND • MPAC • Psychiatry</div>', unsafe_allow_html=True)
 
 # Mode selector
 col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
@@ -750,7 +695,8 @@ if st.session_state.current_mode == "Test the Logic":
             # Convert selected items to the format the routing function expects
             selected_concerns = [i for i in ITEM_LABELS if i in st.session_state.selected_items]
             
-            clinic, confidence, reasoning, also_recommend = route_patient_new(age, selected_concerns)
+            clinic, confidence, reasoning, also_recommend = route_patient_new(
+                age, selected_concerns, [g for g, _ in PARENT_GOALS if g in st.session_state.parent_goals])
             
             st.session_state.last_routing = {
                 "age": age,
@@ -792,9 +738,8 @@ if st.session_state.current_mode == "Test the Logic":
         # Display one card per recommended clinic
         for code in recommended:
             clinic_info = CLINICS[code]
-            card_class = {"DBP": "dbp-card", "CAN": "can-card"}.get(code, "ppc-card")
             st.markdown(f"""
-            <div class="clinic-card {card_class}">
+            <div class="clinic-card" style="background-color: {clinic_info['color']}14; border-left-color: {clinic_info['color']};">
                 <h2>{clinic_info['name']}</h2>
                 <p>{clinic_info['description']}</p>
             </div>
@@ -851,7 +796,8 @@ if st.session_state.current_mode == "Test the Logic":
         if matches != "Yes - This routing is correct":
             correct_clinic = st.selectbox(
                 "Where would you route this patient?",
-                ["DBP", "CAN", "PPC", "Needs dual assessment", "Needs triage call"],
+                list(CLINICS) + ["Needs more than one clinic", "Needs triage call"],
+                format_func=lambda c: CLINICS[c]['name'] if c in CLINICS else c,
                 key="correct_clinic"
             )
             
@@ -888,94 +834,40 @@ elif st.session_state.current_mode == "Edge Case Explorer":
         st.markdown("""
         ```
         ═══════════════════════════════════════════════════════════════
-        STRUCTURED PEDIATRIC TRIAGE: DBP vs NEUROLOGY vs PSYCHIATRY
+        UCLA TRIAGE: 7 CLINICS (rules run in order; first match wins)
         ═══════════════════════════════════════════════════════════════
-        
-        STEP 2: SAFETY SCREEN (Overrides All Age-Based Routing)
-        ────────────────────────────────────────────────────────────
-        → Suicidal ideation/attempt → PSYCHIATRY (Immediate)
-        → Acute psychiatric crisis → PSYCHIATRY (Immediate)
-        
-        
-        STEP 3: NEUROLOGIC DISEASE SCREEN (Overrides Age)
-        ────────────────────────────────────────────────────────────
-        → Seizures/epilepsy → NEUROLOGY
-        → Cerebral palsy → NEUROLOGY
-        → Frequent headaches/migraines → NEUROLOGY
-        → Tuberous sclerosis → NEUROLOGY
-        → Neurogenetic syndromes: Angelman, ASXL-related,
-          CDKL5, Dup15q, HNRNPH2, Kabuki, Prader-Willi → NEUROLOGY
-          (+ PSYCHIATRY too if a psychiatric concern is present)
-        
-        (Note: DBP may follow for developmental/behavioral impact)
-        
-        
-        STEP 1: AGE-BASED PRIORITIZATION
-        ────────────────────────────────────────────────────────────
-        
-        AGE < 2 YEARS: DBP FAST-TRACK
-        ▸ Default to DBP for ANY developmental/behavioral concern:
-          • Developmental delay (any domain)
-          • Autism concern
-          • Milestone loss or plateau
-          • Feeding, sleep, or regulation difficulties
-          • Regional Center referral
-          • Abnormal developmental screening
-        
-        
-        AGE 2-5 YEARS: DBP PREFERRED
-        ▸ Refer to DBP for:
-          • Autism evaluation or diagnostic clarification
-          • Global developmental delay
-          • Language disorder
-          • ADHD vs autism vs anxiety diagnostic question
-          • Has IEP or early childhood special education
-          • Multidomain concerns across home and school
-        
-        ▸ Psychiatry preferred ONLY if:
-          • Primary mood/anxiety requiring medication
-          • No significant developmental concerns
-        
-        
-        AGE ≥ 6 YEARS: SELECTIVE DBP USE
-        ▸ Refer to DBP ONLY if:
-          • Complex neurodevelopmental profile
-            (e.g., ASD + ADHD + learning disability)
-          • Diagnostic uncertainty across domains
-          • School-system complexity (IEP/504 + behavioral)
-          • Prior Neuro/Psych care insufficient
-          • Integration across specialties required
-        
-        
-        STEP 4: PRIMARY PSYCHIATRIC CONDITION SCREEN (Age ≥ 6)
-        ────────────────────────────────────────────────────────────
-        → Bipolar disorder → PSYCHIATRY
-        → Moderate to severe OCD → PSYCHIATRY
-        → Major depressive disorder → PSYCHIATRY
-        → Severe anxiety/panic attacks → PSYCHIATRY
-        → Psychiatric hospitalization history → PSYCHIATRY
-        
-        (Note: DBP may co-manage later for developmental/school issues)
-        
-        
-        STEP 5: DEVELOPMENTAL/SYSTEMS COMPLEXITY (Age ≥ 6)
-        ────────────────────────────────────────────────────────────
-        Refer to DBP when concerns span multiple domains:
-        ▸ Has IEP or 504 Plan
-        ▸ Receives OT, PT, speech, ABA, or counseling
-        ▸ Family needs diagnostic integration + school navigation
-        ▸ No acute neuro/psych condition explains full presentation
-        
-        
-        DBP GUARDRAILS (Age ≥ 6) - DO NOT REFER TO DBP:
-        ────────────────────────────────────────────────────────────
-        ✗ Isolated depression, anxiety, or OCD
-        ✗ Bipolar disorder
-        ✗ Active suicidal ideation
-        ✗ Straightforward migraine management
-        ✗ Epilepsy follow-up without developmental concerns
-        ✗ Medication refills without diagnostic complexity
-        
+        CAN · Peds Neuro NDD · DBP · HRIF · UC-LEND · MPAC · Psychiatry
+        (* = assumption pending clinical review)
+
+         1. Suicidal ideation/attempt ............ → PSYCHIATRY
+         2. Angelman, Dup15q, HNRNPH2 ............ → PEDS NEURO
+            Kabuki, ASXL, Prader-Willi ........... → CAN
+            CDKL5, Rett, Down syndrome ........... → CAN *
+            (+ PSYCHIATRY if a psych concern is also present)
+         3. Tuberous Sclerosis Complex ........... → DBP
+            (+ PEDS NEURO if seizures)
+         4. Under 3 with CP or motor delays ...... → HRIF *
+         5. Seizures + developmental diagnosis ... → PEDS NEURO
+         6. Depression, PTSD, bipolar, OCD ....... → PSYCHIATRY
+            (+ DBP if a developmental diagnosis)
+         7. Under 2, any concern ................. → DBP
+         8. Autism/ADHD + co-occurring condition . → PEDS NEURO *
+         9. Global developmental delay ........... → PEDS NEURO
+        10. Seizures, headaches, tics ............ → PEDS NEURO
+            CP or motor delays (age 3+) .......... → CAN
+        11. Anxiety + developmental diagnosis .... → DBP
+            Anxiety alone ........................ → PSYCHIATRY
+        12. Intellectual disability .............. → DBP
+            (age 12+ → CAN *)
+        13. Autism, ADHD, speech/language ........ → DBP
+        14. Learning disability alone ............ → MPAC
+        15. School supports / services only ...... → DBP
+
+        ADD-ON: neuropsych or academic testing goal, or a
+        learning disability → also MPAC
+
+        UC-LEND: not yet reachable. The form doesn't ask about
+        psychosocial complexity.
         ═══════════════════════════════════════════════════════════════
         ```
         """)
@@ -983,22 +875,16 @@ elif st.session_state.current_mode == "Edge Case Explorer":
         st.markdown("### Core Principles")
         st.info("""
         **Prioritization:**
-        1. **Safety first**: Acute psychiatric crises override all other routing
-        2. **Early intervention**: Children <2 years default to DBP for developmental concerns
-        3. **Appropriate scope**: Route to the specialty best suited for the primary concern
-        4. **Preserve DBP access**: For older children, reserve DBP for complex, multidomain cases
-        
-        **DBP is most appropriate when:**
-        - Multiple developmental domains affected
-        - Diagnostic uncertainty across areas
-        - School system complexity requires navigation
-        - Integration across specialties needed
-        
-        **DBP is NOT appropriate for:**
-        - Isolated psychiatric conditions
-        - Straightforward neurologic disease
-        - Medication management only
-        - Single-domain concerns in older children
+        1. **Safety first**: suicidal ideation or attempt routes to Psychiatry
+        2. **Named syndromes go to their home clinic**: Peds Neuro's dedicated clinics, or CAN
+        3. **Match the question to the clinic's stated scope**: each clinic's "sees" and "does not see" lists
+        4. **Recommend more than one clinic when needed**, e.g. a syndrome plus a psych concern, or a testing need (MPAC)
+
+        **Does NOT see (per clinic notes):**
+        - **Peds Neuro NDD:** learning disability, psychiatric conditions alone
+        - **DBP:** primary psych (ODD, conduct disorder, PTSD, depression), initial CP identification outside HRIF, older kids with a primary ID question
+        - **HRIF:** follow-up after age 3 (or 5)
+        - **UC-LEND:** full evaluations
         """)
     
     with col2:
