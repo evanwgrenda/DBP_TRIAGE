@@ -175,6 +175,7 @@ ITEM_FLAGS = {
     # Recorded only, no routing flags yet
     "dx_rett": [],
     "dx_down": [],
+    "dx_neurofibromatosis": [],
 
     # Neurologic conditions
     "hx_frequent_headaches_migraines": ["neuro_flag"],
@@ -182,6 +183,7 @@ ITEM_FLAGS = {
     "hx_cerebral_palsy": ["neuro_flag", "high_acuity_flag"],
     "hx_tics": [],  # recorded only, no routing flags yet
     "hx_motor_delays": [],  # recorded only, no routing flags yet
+    "hx_acquired_brain_injury": [],  # recorded only, no routing flags yet
 
     # Neurodevelopmental conditions: recorded only, no routing flags yet.
     # To wire into decision logic later, add flags (e.g., ["dbp_flag"]).
@@ -196,6 +198,7 @@ ITEM_FLAGS = {
     "hx_bipolar": ["psych_flag", "high_acuity_flag"],
     "hx_ocd": ["psych_flag"],
     "hx_ptsd": ["psych_flag"],
+    "hx_psychotic_disorders": [],  # recorded only, no routing flags yet
     "hx_anxiety_panic": ["psych_flag"],
     "hx_depression": ["psych_flag"],
     "hx_suicidal_ideation_or_attempt": ["psych_flag", "high_acuity_flag", "safety_flag"],
@@ -227,7 +230,9 @@ ITEM_FLAGS = {
 # Recorded for research only; they do NOT affect routing yet.
 PARENT_GOALS = [  # shown in this order (not alphabetized)
     ("goal_testing_autism", "Autism testing"),
-    ("goal_testing_neuropsychiatric", "Comprehensive neuropsychiatric testing"),
+    ("goal_adhd_evaluation", "ADHD evaluation"),
+    ("goal_testing_neuropsychiatric", "Comprehensive neuropsychological testing"),
+    ("goal_testing_cognitive", "Cognitive testing"),
     ("goal_testing_academic", "Academic testing"),
     ("goal_testing_genetic", "Genetic testing"),
     ("goal_brain_imaging", "Brain imaging (MRI/EEG)"),
@@ -271,6 +276,7 @@ SECTIONS = {
             ("dx_dup15q", "Dup15q Syndrome"),
             ("dx_hnrnph2", "HNRNPH2"),
             ("dx_kabuki", "Kabuki Syndrome"),
+            ("dx_neurofibromatosis", "Neurofibromatosis"),
             ("dx_prader_willi", "Prader-Willi Syndrome"),
             ("dx_rett", "Rett Syndrome"),
             ("hx_tuberous_sclerosis", "Tuberous Sclerosis Complex")
@@ -281,10 +287,11 @@ SECTIONS = {
         "color": "#2774AE",
         "items": [
             ("hx_frequent_headaches_migraines", "Frequent headaches/migraines"),
-            ("hx_seizures_epilepsy", "Seizures/epilepsy"),
+            ("hx_seizures_epilepsy", "Epilepsy/seizure disorder"),
             ("hx_cerebral_palsy", "Cerebral palsy"),
-            ("hx_tics", "Tics"),  # 4th item = right column, directly under Seizures/epilepsy
-            ("hx_motor_delays", "Gross/fine motor delays")
+            ("hx_tics", "Tic disorders/Tourette's Syndrome"),  # 4th item = right column, directly under Epilepsy/seizure disorder
+            ("hx_motor_delays", "Gross/fine motor delays"),
+            ("hx_acquired_brain_injury", "Acquired brain injury")
         ]
     },
     "mental_health_history": {
@@ -296,6 +303,7 @@ SECTIONS = {
             ("hx_depression", "Depression"),
             ("hx_ocd", "Obsessive-compulsive disorder"),
             ("hx_ptsd", "Post-Traumatic Stress Disorder"),
+            ("hx_psychotic_disorders", "Psychotic disorders"),
             ("hx_suicidal_ideation_or_attempt", "Suicidal ideation or suicide attempt")
         ]
     },
@@ -461,7 +469,7 @@ def route_patient_new(age, selected_items, parent_goals=()):
 
     # 5. EPILEPSY + NDD
     if seizures and (ndd or has(MOTOR)):
-        reasoning += [f"⚡ Seizures/epilepsy with {names(ndd + has(MOTOR))} → Peds Neuro (epilepsy + NDD)",
+        reasoning += [f"⚡ Epilepsy/seizure disorder with {names(ndd + has(MOTOR))} → Peds Neuro (epilepsy + NDD)",
                       "Note: CAN also sees epilepsy + NDD"]
         return finish("NEURO", "High")
 
@@ -579,7 +587,7 @@ if st.session_state.current_mode == "Test the Logic":
     
     # Age input
     st.markdown(f'<div class="section-header" style="background: linear-gradient(90deg, #2774AE22 0%, rgba(255,255,255,0) 100%); border-left: 4px solid #2774AE;">🎂 What is your child&#39;s age?</div>', unsafe_allow_html=True)
-    age_years = st.slider("Age (years)", 0, 18, 8)
+    age_years = st.slider("Age (years)", 0, 30, 8)
     
     if age_years < 2:
         age_months = st.slider("Age in Months", 0, 23, age_years * 12)
