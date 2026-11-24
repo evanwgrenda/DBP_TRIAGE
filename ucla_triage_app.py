@@ -233,9 +233,10 @@ PARENT_GOALS = [  # shown in this order (not alphabetized)
     ("goal_adhd_evaluation", "ADHD evaluation"),
     ("goal_testing_neuropsychiatric", "Comprehensive neuropsychological testing"),
     ("goal_testing_cognitive", "Cognitive testing"),
-    ("goal_testing_academic", "Academic testing"),
+    ("goal_testing_academic", "Academic/achievement testing"),
     ("goal_testing_genetic", "Genetic testing"),
-    ("goal_brain_imaging", "Brain imaging (MRI/EEG)"),
+    ("goal_brain_imaging", "Brain imaging (MRI)"),
+    ("goal_neurophysiological_testing", "Neurophysiological testing (EEG)"),
     ("goal_medication_management", "Medication management"),
     ("goal_therapy_counseling", "Therapy or counseling"),
     ("goal_access_to_services", "Access to services (ABA, OT, speech, Regional Center)"),
@@ -299,11 +300,11 @@ SECTIONS = {
         "color": "#2774AE",
         "items": [
             ("hx_anxiety_panic", "Anxiety or panic attacks"),
-            ("hx_bipolar", "Bipolar disorder"),
-            ("hx_depression", "Depression"),
-            ("hx_ocd", "Obsessive-compulsive disorder"),
+            ("hx_bipolar", "Bipolar Disorder"),
+            ("hx_depression", "Major Depressive Disorder"),
+            ("hx_ocd", "Obsessive-Compulsive Disorder"),
             ("hx_ptsd", "Post-Traumatic Stress Disorder"),
-            ("hx_psychotic_disorders", "Psychotic disorders"),
+            ("hx_psychotic_disorders", "Psychotic Disorder"),
             ("hx_suicidal_ideation_or_attempt", "Suicidal ideation or suicide attempt")
         ]
     },
