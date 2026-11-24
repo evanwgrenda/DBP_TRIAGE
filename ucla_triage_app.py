@@ -554,7 +554,7 @@ def route_patient_new(age, selected_items, parent_goals=()):
 
 # Header
 st.markdown('<div class="main-header">🏥 UCLA AI Triage Prototype</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Helping patients and their families connect to the right UCLA specialist: Psychiatry · Pediatrics · Medicine</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Helping patients and their families connect to the right specialist within Psychiatry, Pediatrics, or Medicine at UCLA</div>', unsafe_allow_html=True)
 
 # Mode selector
 col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
